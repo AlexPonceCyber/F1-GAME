@@ -18,7 +18,7 @@ jobs:
       - run: npx cap add android
       - run: node scripts/android-patch.js
       - run: npx cap sync android
-      - run: chmod +x android/gradlew && ./gradlew assembleDebug
+      - run: chmod +x gradlew && ./gradlew assembleDebug
         working-directory: android
       - uses: actions/upload-artifact@v4
         with:
