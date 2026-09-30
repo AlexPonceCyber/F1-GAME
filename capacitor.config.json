@@ -1,0 +1,7 @@
+{
+  "appId": "local.f1glory.app",
+  "appName": "F1 Glory",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "webContentsDebuggingEnabled": true }
+}
