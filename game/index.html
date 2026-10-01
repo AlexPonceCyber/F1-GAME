@@ -1360,7 +1360,7 @@ h1,h2,h3,.decision h3,#intro h1{font-family:var(--f-disp);font-weight:800;letter
       <button class="dec locked car" disabled><span class="dec-y">1950</span><img src="/ico/1950car.png" alt="" loading="lazy"></button>
       <button class="dec locked car" disabled><span class="dec-y">1960</span><img src="/ico/1960car.png" alt="" loading="lazy"></button>
       <button class="dec locked car" disabled><span class="dec-y">1970</span><img src="/ico/1970car.png" alt="" loading="lazy"></button>
-      <button class="dec locked car" disabled><span class="dec-y">1980</span><img src="/ico/1980car.png" alt="" loading="lazy"></button>
+      <button class="dec car" id="dec1980" onclick="retroAnios('carrera','1980')"><span class="dec-y">1980</span><img src="/ico/1980car.png" alt="" loading="lazy"></button>
       <button class="dec locked" id="dec1990" disabled>1990</button>
       <button class="dec locked" id="dec2000" disabled>2000</button>
       <button class="dec car" id="dec2010" onclick="retroAnios('carrera','2010')"><span class="dec-y">2010</span><img src="/ico/2010car.png" alt="" loading="lazy"></button>
@@ -3402,6 +3402,216 @@ const ARRIVALS_2000 = [
  {y:2026,n:"A. Lindblad",b:2007,c:90,f:"🇬🇧",pref:"Minardi"},
 ];
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   🕰️ ERA 1980 · el efecto suelo, el turbo y la década que va de Jones a Prost-Senna.
+   Quince equipos en 1980 (una parrilla de 24 coches tras la precalificación) y la F1 que acaba con
+   los 90 a punto de empezar: el motor atmosférico Cosworth se muere, llegan los turbo (Renault 1977,
+   Ferrari 1981, BMW y Honda después), se prohíbe el efecto suelo (1983) y en 1989 se prohíben los turbo.
+   Mismo molde que la era 1990: parrilla de salida, linaje de equipos, entradas, llegadas reales de la
+   década y escalera junior de época (Fórmula Ford → F3 británica → F3 europea → F2 europea, que en
+   1985 pasó a ser la F3000). El linaje de los 80 ENLAZA con el de 1990: los equipos que existen en
+   1990 (Benetton nace de Toleman, Leyton House de March, Minardi, AGS, Larrousse…) llegan con sus
+   cadenas, y de ahí en adelante se reutiliza lo ya definido. Datos: Wikipedia (temporadas 1980-1989,
+   F2 europea, F3000, F3 británica y europea), contrastados con las plantillas de 1990.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const TEAMS_1980 = [
+  {name:"Williams",     abbr:"WIL", color:"#1E50C8", color2:"#F5F5F5", perf:92},   // campeón de constructores y de pilotos (Jones)
+  {name:"Ligier",       abbr:"LIG", color:"#1F5FC0", color2:"#F5F5F5", perf:87},
+  {name:"Brabham",      abbr:"BRA", color:"#35578A", color2:"#F5F5F5", perf:86},   // Piquet, subcampeón
+  {name:"Renault",      abbr:"REN", color:"#F5D800", color2:"#0A0A0A", perf:84},   // el turbo: rapidísimo y frágil
+  {name:"Arrows",       abbr:"ARR", color:"#F5F5F5", color2:"#111111", perf:77},
+  {name:"Alfa Romeo",   abbr:"ALF", color:"#B0001E", color2:"#F5F5F5", perf:76},
+  {name:"Lotus",        abbr:"LOT", color:"#111111", color2:"#C9A227", perf:75},   // JPS negro y oro
+  {name:"Ferrari",      abbr:"FER", color:"#D40000", color2:"#7a0018", perf:73},   // el peor año de su década: 8 puntos
+  {name:"McLaren",      abbr:"MCL", color:"#F5F5F5", color2:"#D0021B", perf:70},
+  {name:"Tyrrell",      abbr:"TYR", color:"#0A1A6B", color2:"#F5F5F5", perf:68},
+  {name:"Fittipaldi",   abbr:"FIT", color:"#E8C000", color2:"#0A5A2A", perf:65},   // Copersucar: el sueño brasileño
+  {name:"ATS",          abbr:"ATS", color:"#C0C0C8", color2:"#1A1A1A", perf:63},
+  {name:"Ensign",       abbr:"ENS", color:"#33A1DE", color2:"#F5F5F5", perf:61},
+  {name:"Osella",       abbr:"OSE", color:"#6B1A1A", color2:"#c0c0c8", perf:60},
+  {name:"Shadow",       abbr:"SHA", color:"#111111", color2:"#F5F5F5", perf:60},
+];
+// [nombre, edad en 1980, nivel, techo, títulos ANTES de 1980, bandera]
+const GRID1980 = {
+  "Williams":[["A. Jones",34,91,92,0,"🇦🇺"],["C. Reutemann",38,88,89,0,"🇦🇷"]],
+  "Ligier":[["J. Laffite",37,86,88,0,"🇫🇷"],["D. Pironi",28,87,92,0,"🇫🇷"]],
+  "Brabham":[["N. Piquet",28,89,95,0,"🇧🇷"],["H. Rebaque",24,72,76,0,"🇲🇽"]],
+  "Renault":[["R. Arnoux",32,88,90,0,"🇫🇷"],["J-P. Jabouille",38,81,82,0,"🇫🇷"]],
+  "Arrows":[["R. Patrese",26,84,89,0,"🇮🇹"],["J. Mass",34,77,78,0,"🇩🇪"]],
+  "Alfa Romeo":[["B. Giacomelli",28,83,85,0,"🇮🇹"],["P. Depailler",36,84,85,0,"🇫🇷"]],
+  "Lotus":[["M. Andretti",40,85,86,1,"🇺🇸"],["E. de Angelis",22,82,90,0,"🇮🇹"]],
+  "Ferrari":[["G. Villeneuve",30,92,94,0,"🇨🇦"],["J. Scheckter",30,86,87,1,"🇿🇦"]],
+  "McLaren":[["J. Watson",34,84,85,0,"🇬🇧"],["A. Prost",25,86,96,0,"🇫🇷"]],
+  "Tyrrell":[["J-P. Jarier",34,79,80,0,"🇫🇷"],["D. Daly",27,77,80,0,"🇮🇪"]],
+  "Fittipaldi":[["E. Fittipaldi",34,82,84,2,"🇧🇷"],["K. Rosberg",32,84,90,0,"🇫🇮"]],
+  "ATS":[["M. Surer",29,78,82,0,"🇨🇭"],["J. Lammers",24,73,77,0,"🇳🇱"]],
+  "Ensign":[["C. Regazzoni",41,77,79,0,"🇨🇭"],["T. Needell",29,68,70,0,"🇬🇧"]],
+  /* 🚗 UN SOLO COCHE, como en la realidad de 1980: Osella presentó únicamente a Cheever. */
+  "Osella":[["E. Cheever",22,78,85,0,"🇺🇸"]],
+  "Shadow":[["G. Lees",29,73,76,0,"🇬🇧"],["D. Kennedy",27,66,68,0,"🇮🇪"]],
+};
+/* campeones retirados a 1980. Lauda dejó la F1 en octubre de 1979 y VUELVE en 1982: su comeback ya está
+   previsto en el bolsillo de retirados (LEYENDAS_RETIRADAS[1980]). Hunt, retirado en junio del 79. */
+const LEGENDS_1980 = [["J.M. Fangio",5,"🇦🇷"],["J. Brabham",3,"🇦🇺"],["J. Stewart",3,"🇬🇧"],["N. Lauda",2,"🇦🇹"],
+  ["J. Clark",2,"🇬🇧"],["G. Hill",2,"🇬🇧"],["A. Ascari",2,"🇮🇹"],["J. Hunt",1,"🇬🇧"],["J. Surtees",1,"🇬🇧"],
+  ["D. Hulme",1,"🇳🇿"],["J. Rindt",1,"🇦🇹"],["P. Hill",1,"🇺🇸"],["M. Hawthorn",1,"🇬🇧"],["G. Farina",1,"🇮🇹"]];
+/* 🏆 CROSSOVERS DE LOS 80: la CART, el IMSA y el Grupo C de aquel momento, más los de 1990 que aún
+   no han pasado (la ventana de edad es 27-37). Mauro Baldi y Raul Boesel salen: en esta era son
+   pilotos de F1 (llegadas de 1982) y no pueden «cruzar» a algo que ya existe. */
+const CROSSOVERS_1980 = [
+  {name:"R. Mears", flag:"🇺🇸", born:1951, base:87, ceil:90},      // CART: cuatro Indy 500
+  {name:"B. Rahal", flag:"🇺🇸", born:1953, base:84, ceil:87},      // campeón de la CART en 1986
+  {name:"T. Sneva", flag:"🇺🇸", born:1948, base:82, ceil:84},      // campeón de la USAC y de la CART
+  {name:"G. Brabham", flag:"🇦🇺", born:1952, base:80, ceil:83},    // hijo de Jack; campeón del IMSA
+  {name:"K. Ludwig", flag:"🇩🇪", born:1949, base:84, ceil:86},     // Grupo C y DTM; ganó Le Mans
+  {name:"B. Wollek", flag:"🇫🇷", born:1943, base:82, ceil:84},     // el eterno aspirante de Le Mans
+  {name:"H. Haywood", flag:"🇺🇸", born:1948, base:78, ceil:80},
+  ...CROSSOVERS_1990.filter(c=>c.name!=="J. Boesel" && c.name!=="M. Baldi"),
+];
+/* 🧬 LINAJE DE LOS 80. Los equipos que mueren o cambian de manos durante la década, con su fecha
+   real, y después se engancha la cadena de 1990 (que sigue hasta hoy): Tyrrell→BAR→…→Mercedes,
+   Ligier→Prost, Arrows→Footwork, Brabham, Lotus y el resto de callejones de los 90. Toleman es el
+   corazón de la cadena de Benetton: Benetton compró Toleman en 1985 y corrió con su nombre en 1986. */
+const LINEAGE_1980 = [
+ /* Todos estos cerraron de verdad, así que llevan una SEGUNDA quiebra de respaldo unos años después: si el dado
+    de la primera falla (el equipo «aguanta»), no se queda vivo para siempre como un Ensign de 2026. */
+ {key:"Fittipaldi", steps:[{die:true, w:[1982,1983], p:.98}, {die:true, w:[1988,1992], p:.95}]},   // Fittipaldi cierra tras 1982
+ {key:"Ensign",     steps:[{die:true, w:[1982,1984], p:.97}, {die:true, w:[1988,1992], p:.95}]},   // la última Ensign corre en 1982
+ {key:"Shadow",     steps:[{to:{name:"Theodore",abbr:"THE",color:"#101010",color2:"#D4001A"}, w:[1981,1981], p:.90},
+                           {die:true, w:[1982,1984], p:.97}, {die:true, w:[1988,1992], p:.95}]},   // Teddy Yip compra Shadow; Theodore cierra en 1983
+ {key:"ATS",        steps:[{die:true, w:[1984,1985], p:.97}, {die:true, w:[1989,1992], p:.95}]},   // ATS se retira tras 1984
+ {key:"Alfa Romeo", steps:[{die:true, w:[1985,1986], p:.96}, {die:true, w:[1990,1994], p:.95}]},   // el equipo oficial se despide en 1985
+ {key:"Renault",    steps:[{die:true, w:[1985,1986], p:.96}, {die:true, w:[1990,1994], p:.95}]},   // Renault deja de ser constructor tras 1985
+ {key:"March",      steps:[{die:true, w:[1988,1992], p:.9}]},                   // respaldo del March de 1981 (su quiebra principal va en la entrada)
+ {key:"Spirit",     steps:[{die:true, w:[1988,1992], p:.9}]},
+ {key:"Zakspeed",   steps:[{die:true, w:[1992,1996], p:.9}]},
+ {key:"Haas Lola",  steps:[{die:true, w:[1988,1992], p:.9}]},
+ {key:"Rial",       steps:[{die:true, w:[1991,1994], p:.9}]},
+ {key:"Toleman",    steps:[{to:{name:"Benetton",abbr:"BEN",color:"#3FB8CF",color2:"#F5D800"}, w:[1985,1986], p:.92},
+                           {to:{name:"Renault",abbr:"REN",color:"#F5D800",color2:"#0A0A0A"}, w:[2001,2004], p:.8, from:"Benetton"},
+                           {to:{name:"Lotus",abbr:"LOT",color:"#111111",color2:"#c9a227"}, w:[2011,2014], p:.5, from:"Renault"},
+                           {to:{name:"Alpine",abbr:"ALP",color:"#0093CC",color2:"#FD4BC7"}, w:[2019,2024], p:.6, from:"Lotus"}]},
+ /* Stewart → Jaguar → Red Bull: la cadena que en 2000 existe desde el principio. Sin ella no habría
+    Red Bull y Minardi no podría convertirse en Toro Rosso (su paso exige que Red Bull esté en pista). */
+ {key:"Stewart",   steps:[{to:{name:"Jaguar",abbr:"JAG",color:"#00563F",color2:"#C0A062"}, w:[1999,2000], p:.85},
+                           {to:{name:"Red Bull",abbr:"RBR",color:"#0A1E5E",color2:"#D4001A"}, w:[2004,2007], p:.8, from:"Jaguar"}]},
+ ...LINEAGE_1990.filter(c=>c.key!=="Benetton" && c.key!=="Life"),   // Benetton lo da Toleman; Life, ver entries1980()
+ ...LINEAGE_2000.filter(c=>c.key==="Sauber" || c.key==="Jordan"),
+];
+/* 🆕 ENTRADAS: los equipos que llegan durante la década (y, a partir de 1991, los mismos que ya definía
+   la era 1990, para que la F1 de las décadas siguientes tenga su mundo). Es una FUNCIÓN y no una constante
+   porque el juego empuja estos objetos tal cual a la parrilla y un rebautizo (Stewart→Jaguar) los
+   modificaría en sitio: con objetos nuevos en cada partida no se arrastra nada entre carreras. */
+function entries1980(){
+  const c90=n=>{ const t=TEAMS_1990.find(x=>x.name===n); return {abbr:t.abbr, color:t.color, color2:t.color2}; };
+  const nuevo=(range, prob, name, base, perf, dieAfter)=>({range, prob, team:{name, ...base, perf, cat:"F1"}, drivers:null, ...(dieAfter?{dieAfter}:{})});
+  return [
+    nuevo([1981,1981], .95, "Toleman",  {abbr:"TOL", color:"#F5F5F5", color2:"#E30118"}, 58),
+    nuevo([1981,1981], .90, "March",    {abbr:"MAR", color:"#8AA0B0", color2:"#33414D"}, 56, {w:[1,2], p:.98}),
+    nuevo([1982,1983], .85, "Spirit",   {abbr:"SPI", color:"#F5F5F5", color2:"#1A5A9A"}, 56, {w:[2,3], p:.97}),
+    nuevo([1985,1985], .95, "Minardi",  c90("Minardi"), 55),
+    nuevo([1985,1985], .85, "Zakspeed", {abbr:"ZAK", color:"#E8E8EC", color2:"#1B3A8A"}, 54, {w:[4,5], p:.97}),
+    nuevo([1985,1986], .80, "Haas Lola",{abbr:"HLO", color:"#F5F5F5", color2:"#C8102E"}, 66, {w:[1,2], p:.98}),
+    nuevo([1986,1986], .90, "AGS",      c90("AGS"), 52),
+    nuevo([1987,1987], .90, "Larrousse",c90("Larrousse"), 58),
+    nuevo([1987,1987], .85, "Coloni",   c90("Coloni"), 50),
+    nuevo([1987,1988], .90, "Leyton House", c90("Leyton House"), 62),
+    nuevo([1988,1988], .90, "Scuderia Italia", c90("Scuderia Italia"), 58),
+    nuevo([1988,1988], .85, "EuroBrun", c90("EuroBrun"), 50),
+    nuevo([1988,1988], .85, "Rial",     {abbr:"RIA", color:"#111111", color2:"#F5F5F5"}, 56, {w:[1,2], p:.98}),
+    nuevo([1989,1989], .90, "Onyx",     c90("Onyx"), 56),
+    /* Life corrió un solo año (1990) y no se clasificó casi nunca: su quiebra va como `dieAfter` y no en la cadena
+       de 1990, porque ahí su fecha (1990-91) cae ANTES de que el equipo exista en esta era y se daría por hecha. */
+    nuevo([1990,1990], .85, "Life",     c90("Life"), 45, {w:[1,1], p:.99}),
+    ...ENTRIES_1990.map(e=>({...e, team:{...e.team}, ...(e.dieAfter?{dieAfter:{...e.dieAfter, w:[...e.dieAfter.w]}}:{})})),
+    ...ENTRIES_2000.filter(e=>e.team.name==="Cadillac").map(e=>({...e, team:{...e.team}, dieAfter:{...e.dieAfter, w:[...e.dieAfter.w]}})),
+  ];
+}
+/* 🎬 LLEGADAS REALES de 1981 a 1990 (año ±1 por partida). `c` = techo; `pref` = equipo con el que
+   debutaron o al que llegaron (resuelto por el linaje). Fuera, a propósito, los que murieron corriendo
+   (Bellof, Winkelhock, Gartner, Paletti…): misma regla del cuaderno que con Ratzenberger. A partir de
+   1991 se reutilizan las llegadas de la era 1990, tal cual. */
+const ARRIVALS_1980 = [
+ {y:1981,n:"M. Alboreto",b:1956,c:91,f:"🇮🇹",pref:"Tyrrell"}, {y:1981,n:"D. Warwick",b:1954,c:88,f:"🇬🇧",pref:"Toleman"},
+ {y:1981,n:"N. Mansell",b:1953,c:92,f:"🇬🇧",pref:"Lotus"}, {y:1981,n:"A. de Cesaris",b:1959,c:84,f:"🇮🇹",pref:"McLaren"},
+ {y:1981,n:"E. Salazar",b:1954,c:78,f:"🇨🇱",pref:"March"}, {y:1981,n:"C. Serra",b:1957,c:76,f:"🇧🇷",pref:"Fittipaldi"},
+ {y:1981,n:"P. Ghinzani",b:1952,c:76,f:"🇮🇹",pref:"Osella"}, {y:1981,n:"P. Tambay",b:1949,c:85,f:"🇫🇷",pref:"Theodore"},
+ {y:1982,n:"T. Fabi",b:1955,c:85,f:"🇮🇹",pref:"Toleman"}, {y:1982,n:"M. Baldi",b:1954,c:82,f:"🇮🇹",pref:"Arrows"},
+ {y:1982,n:"R. Boesel",b:1957,c:80,f:"🇧🇷",pref:"March"}, {y:1982,n:"R. Guerrero",b:1958,c:82,f:"🇨🇴",pref:"Ensign"},
+ {y:1982,n:"T. Byrne",b:1958,c:82,f:"🇮🇪",pref:"Theodore"},
+ {y:1983,n:"T. Boutsen",b:1957,c:86,f:"🇧🇪",pref:"Arrows"}, {y:1983,n:"J. Palmer",b:1956,c:78,f:"🇬🇧",pref:"Williams"},
+ {y:1983,n:"D. Sullivan",b:1950,c:76,f:"🇺🇸",pref:"Tyrrell"}, {y:1983,n:"S. Johansson",b:1956,c:85,f:"🇸🇪",pref:"Spirit"},
+ {y:1983,n:"C. Fabi",b:1961,c:78,f:"🇮🇹",pref:"Osella"}, {y:1983,n:"J. Cecotto",b:1956,c:78,f:"🇻🇪",pref:"Theodore"},
+ {y:1984,n:"A. Senna",b:1960,c:97,f:"🇧🇷",pref:"Toleman"}, {y:1984,n:"M. Brundle",b:1959,c:86,f:"🇬🇧",pref:"Tyrrell"},
+ {y:1984,n:"G. Berger",b:1959,c:90,f:"🇦🇹",pref:"ATS"}, {y:1984,n:"P. Martini",b:1961,c:80,f:"🇮🇹",pref:"Toleman"},
+ {y:1984,n:"P. Alliot",b:1954,c:80,f:"🇫🇷",pref:"Ligier"}, {y:1984,n:"F. Hesnault",b:1956,c:74,f:"🇫🇷",pref:"Ligier"},
+ {y:1985,n:"I. Capelli",b:1963,c:87,f:"🇮🇹",pref:"Tyrrell"}, {y:1985,n:"C. Danner",b:1958,c:78,f:"🇩🇪",pref:"Zakspeed"},
+ {y:1985,n:"P. Streiff",b:1955,c:78,f:"🇫🇷",pref:"Renault"},
+ {y:1986,n:"A. Nannini",b:1959,c:89,f:"🇮🇹",pref:"Minardi"}, {y:1986,n:"A. Caffi",b:1964,c:80,f:"🇮🇹",pref:"Osella"},
+ {y:1986,n:"J. Dumfries",b:1958,c:75,f:"🇬🇧",pref:"Lotus"},
+ {y:1987,n:"S. Nakajima",b:1953,c:78,f:"🇯🇵",pref:"Lotus"}, {y:1987,n:"G. Tarquini",b:1962,c:83,f:"🇮🇹",pref:"Osella"},
+ {y:1987,n:"N. Larini",b:1964,c:83,f:"🇮🇹",pref:"Coloni"}, {y:1987,n:"Y. Dalmas",b:1961,c:78,f:"🇫🇷",pref:"Larrousse"},
+ {y:1987,n:"S. Modena",b:1963,c:86,f:"🇮🇹",pref:"Brabham"}, {y:1987,n:"R. Moreno",b:1959,c:84,f:"🇧🇷",pref:"AGS"},
+ {y:1988,n:"M. Gugelmin",b:1963,c:86,f:"🇧🇷",pref:"Leyton House"}, {y:1988,n:"A. Suzuki",b:1960,c:78,f:"🇯🇵",pref:"Larrousse"},
+ {y:1988,n:"J. Bailey",b:1961,c:74,f:"🇬🇧",pref:"Tyrrell"}, {y:1988,n:"O. Larrauri",b:1954,c:76,f:"🇦🇷",pref:"EuroBrun"},
+ {y:1988,n:"C. Langes",b:1960,c:70,f:"🇮🇹",pref:"EuroBrun"},
+ {y:1989,n:"J. Herbert",b:1964,c:89,f:"🇬🇧",pref:"Benetton"}, {y:1989,n:"J. Alesi",b:1964,c:92,f:"🇫🇷",pref:"Tyrrell"},
+ {y:1989,n:"JJ. Lehto",b:1966,c:85,f:"🇫🇮",pref:"Onyx"}, {y:1989,n:"B. Gachot",b:1962,c:82,f:"🇧🇪",pref:"Onyx"},
+ {y:1989,n:"M. Donnelly",b:1964,c:85,f:"🇬🇧",pref:"Lotus"}, {y:1989,n:"E. Pirro",b:1962,c:84,f:"🇮🇹",pref:"Benetton"},
+ {y:1989,n:"É. Bernard",b:1964,c:81,f:"🇫🇷",pref:"Larrousse"}, {y:1989,n:"O. Grouillard",b:1958,c:75,f:"🇫🇷",pref:"Ligier"},
+ {y:1989,n:"G. Foitek",b:1965,c:76,f:"🇨🇭",pref:"EuroBrun"}, {y:1989,n:"P. Barilla",b:1961,c:72,f:"🇮🇹",pref:"Minardi"},
+ {y:1990,n:"D. Brabham",b:1965,c:80,f:"🇦🇺",pref:"Brabham"},
+ ...ARRIVALS_1990,
+];
+/* 🎓 CANTERA DE LOS 80: gente de F2, F3 y Fórmula Ford que llegó a la F1, se quedó a las puertas o hizo
+   carrera fuera. Después, la de 1990 entera (cada una con su año de «disponible desde»). Mismo formato:
+   [nombre, bandera, disponible desde, nacimiento, techo]. Sin repetir a nadie de la parrilla ni de las
+   llegadas, y sin nombres de quien murió corriendo. */
+const ROOKIE_1980 = (function(){ const mios = [
+  ["H. Rothengatter","🇳🇱",null,1954,76],["F. Forini","🇨🇭",null,1958,72],["A. Berg","🇨🇦",null,1961,76],
+  ["B. Gabbiani","🇮🇹",null,1957,74],["E. Bertaggia","🇮🇹",null,1964,76],["M. Thackwell","🇳🇿",null,1961,80],
+  ["K. Acheson","🇬🇧",null,1957,74],["R. Keegan","🇬🇧",null,1955,76],["P. Fabre","🇫🇷",null,1960,74],
+  ["F. Barbazza","🇮🇹",null,1963,76],["V. Weidler","🇩🇪",null,1962,72],["J. Winkelhock","🇩🇪",null,1960,78],
+  ["A. Wallace","🇬🇧",null,1961,80],["P-H. Raphanel","🇫🇷",null,1961,74],["L. Pérez-Sala","🇪🇸",null,1959,76],
+  ]; const visto = new Set();
+  return [...mios, ...ROOKIE_1990].filter(r=>!visto.has(r[0]) && visto.add(r[0]));   // la ficha de los 80 manda si el nombre se repite
+})();
+/* 🏁 LA ESCALERA DE LOS 80: karting → Fórmula Ford → F3 británica → F3 europea → F2 europea (F3000 desde 1985). */
+const FFORD_1980 = [
+  {name:"Van Diemen", color:"#1144aa", color2:"#0a2560", perf:59},{name:"Royale Racing", color:"#cc2222", color2:"#6b1010", perf:56},
+  {name:"Reynard Racing", color:"#0e7a5f", color2:"#063d2f", perf:57},{name:"Lola Cars", color:"#e6a01e", color2:"#8a5f0f", perf:54},
+  {name:"Crosslé", color:"#7a1fa2", color2:"#3d0f52", perf:52},{name:"Hawke Racing", color:"#888888", color2:"#444444", perf:50},
+  {name:"Delta Motorsport", color:"#2a2a35", color2:"#101018", perf:49}];
+const F3BR_1980 = [ // F3 británica (campeones: Project Four 79-80, West Surrey 81 y 83, Murray Taylor 82, David Price 84…)
+  {name:"West Surrey Racing", color:"#1144aa", color2:"#0a2560", perf:66},{name:"Project Four Racing", color:"#f5f5f5", color2:"#c8000a", perf:67},
+  {name:"Murray Taylor Racing", color:"#e30613", color2:"#7a0309", perf:63},{name:"David Price Racing", color:"#2a2a35", color2:"#101018", perf:62},
+  {name:"Madgwick Motorsport", color:"#0e7a5f", color2:"#063d2f", perf:60},{name:"Eddie Jordan Racing", color:"#2F9E2F", color2:"#111111", perf:61},
+  {name:"Bowman Racing", color:"#e6a01e", color2:"#8a5f0f", perf:57}];
+const F3EU_1980 = [ // F3 europea (1975-84) y, después, las nacionales italiana y alemana
+  {name:"Euroracing", color:"#dd0022", color2:"#6b0011", perf:68, nat:"🇮🇹"},
+  {name:"Pavesi Racing", color:"#e2001a", color2:"#7a000e", perf:64, nat:"🇮🇹"},
+  {name:"Enzo Coloni Racing", color:"#D0B04A", color2:"#6b5210", perf:63, nat:"🇮🇹"},
+  {name:"Trivellato Racing", color:"#0a4ea2", color2:"#062f61", perf:62, nat:"🇮🇹"},
+  {name:"Oreca", color:"#1f5fc0", color2:"#0e2f60", perf:66, nat:"🇫🇷"},
+  {name:"Racing Team Holland", color:"#e07b00", color2:"#6b3a00", perf:61, nat:"🇳🇱"},
+  {name:"WTS Racing", color:"#c0c0c8", color2:"#5a5a66", perf:62, nat:"🇩🇪"},
+  {name:"Josef Kaufmann Racing", color:"#c9a227", color2:"#6b5210", perf:58, nat:"🇩🇪"}];
+const F2_1980 = [ /* F2 europea hasta 1984; la F3000 la sustituye en 1985 con los mismos nombres de siempre
+     (Ralt, March, Onyx, BS Automotive, Oreca, AGS…), así que una sola lista vale para toda la década. */
+  {name:"Ralt Racing", color:"#1144aa", color2:"#0a2560", perf:78},{name:"March Racing", color:"#8AA0B0", color2:"#33414D", perf:76},
+  {name:"Onyx Racing", color:"#1A6B3A", color2:"#f5f5f5", perf:74},{name:"BS Automotive", color:"#c0c0c8", color2:"#5a5a66", perf:75},
+  {name:"Équipe Oreca", color:"#1f5fc0", color2:"#0e2f60", perf:73},{name:"AGS Compétition", color:"#1A5A9A", color2:"#f5f5f5", perf:70},
+  {name:"Maurer Motorsport", color:"#cc2222", color2:"#6b1010", perf:68},{name:"Sanremo Racing", color:"#e6a01e", color2:"#8a5f0f", perf:67}];
+const KART_1980 = [
+  {name:"CRG", color:"#d4820a", color2:"#7a4a06", perf:52, sub:"La escuela dura del karting italiano"},
+  {name:"Birel", color:"#cc2222", color2:"#5e0f0f", perf:52, sub:"La escuela italiana de toda la vida"},
+  {name:"Tony Kart", color:"#2a9d3a", color2:"#136223", perf:51, sub:"La marca joven que sube como la espuma"},
+  {name:"DAP", color:"#111318", color2:"#000000", perf:50, sub:"El chasis con el que se hizo media parrilla"},
+  {name:"Zip Kart", color:"#0f7ac0", color2:"#08405f", perf:49, sub:"El chasis de las carreras inglesas"},
+  {name:"Haase", color:"#c9a227", color2:"#6b5210", perf:48, sub:"Alemania: método y kilómetros"},
+  {name:"Swiss Hutless", color:"#e2001a", color2:"#7a000e", perf:48, sub:"Precisión suiza sobre asfalto"},
+];
+
 // registro de eras. La "2026" envuelve el mundo actual; las retro traen su parrilla/cantera/leyendas de época.
 /* 🕰️ LA ERA 2025 — EL MODO JEFE DESDE EL AÑO PASADO (Carlos, 18-19 sep 2026). Parrilla del GP de
    Australia 2025, la del arranque real: Lawson aún en Red Bull, Tsunoda en Racing Bulls, Doohan en
@@ -3487,6 +3697,19 @@ const ERAS = {
     crossovers:CROSSOVERS_1990,
     lineage:LINEAGE_1990, arrivals:ARRIVALS_1990,
     // en 1990 no hay filial de Red Bull: la clave apunta al nombre FUTURO y solo cuenta si Red Bull llega
+    juniorOf:{"Toro Rosso":"Red Bull"} },
+  /* 🕰️ 1980: mismo molde que 1990. La F2 pasa a F3000 en 1985 (la etiqueta lo resuelve catName por año).
+     Accidente de época entre 1982 (Villeneuve, Paletti, el final de Pironi) y 1986 (de Angelis en test). */
+  "1980":{ id:"1980", baseYear:1980, teams:TEAMS_1980, grid:GRID1980, rookies:ROOKIE_1980, legends:LEGENDS_1980,
+    get expansion(){ return entries1980(); },
+    cats:{F4:["Fórmula Ford","Formula Ford","Fórmula Ford"],F3:["F3 Británica","British F3","F3 Britânica"],FR:["F3 Continental","Continental F3","F3 Continental"],
+          F2:function(){ return (S && yearNow()>=1985) ? "F3000" : ["F2 Europea","European F2","F2 Europeia"]; }},
+    jr:{F4:FFORD_1980,F3:F3BR_1980,FR:F3EU_1980,F2:F2_1980}, kart:KART_1980,
+    deadly:true, deathWindow:[1982,1986],   // ⚫ los años en los que puede pasar (uno por partida)
+    maxGrid:22,   // 🚪 en los 80 la parrilla real tuvo 20+ equipos (hubo que precalificar): el tope moderno de 13 no vale aquí. 22 y no 20 para que ningún recién llegado espere cola y se salte su fecha de quiebra
+    crossovers:CROSSOVERS_1980,
+    lineage:LINEAGE_1980, arrivals:ARRIVALS_1980,
+    // en 1980 no hay filial de Red Bull: la clave apunta al nombre FUTURO y solo cuenta si Red Bull llega
     juniorOf:{"Toro Rosso":"Red Bull"} },
   "2010":{ id:"2010", baseYear:2010, teams:TEAMS_2010, grid:GRID2010, rookies:ROOKIE_2010, crossovers:CROSSOVERS, legends:LEGENDS_2010, expansion:ENTRIES_2010, cats:{F4:["Fórmula Renault","Formula Renault","Fórmula Renault"],F3:["Fórmula 3","Formula 3","Fórmula 3"],FR:"GP3",F2:"GP2"}, jr:{F4:FREN_2010,F3:F3_2010,FR:GP3_2010,F2:GP2_2010}, kart:KART_2010,
     lineage:LINEAGE_2010, arrivals:ARRIVALS_2010, juniorOf:{"Toro Rosso":"Red Bull"} },
@@ -3580,6 +3803,11 @@ const LEYENDAS_RETIRADAS = {
        ["S. Hayes","🇺🇸",85,47,0,2024,true]]
 };
 LEYENDAS_RETIRADAS[2025]=LEYENDAS_RETIRADAS[2026];   // 🕰️ los mismos retirados: Ricciardo y Magnussen ya lo dejaron en 2024
+/* 🕰️ 1980: los que ya habían colgado el casco (nivel al retirarse, edad entonces, títulos, año). Lauda lo
+   dejó en octubre del 79 y volvió en 1982 con McLaren: el comeback del bolsillo existe para él. Nada de
+   Peterson, Pace ni Pryce: murieron corriendo (mismo criterio que NO_TAUNT). */
+LEYENDAS_RETIRADAS[1980]=[["N. Lauda","🇦🇹",91,30,2,1979],["J. Hunt","🇬🇧",88,32,1,1979],
+  ["J. Ickx","🇧🇪",86,35,0,1979],["C. Amon","🇳🇿",84,33,0,1976],["H-J. Stuck","🇩🇪",79,29,0,1979]];
 function retiredSeed(baseYear){
   (LEYENDAS_RETIRADAS[baseYear]||[]).forEach(function(L6){
     /* 🎂 la edad del dato es la que TENÍA AL RETIRARSE; el bolsillo la quiere a día de hoy */
@@ -3684,7 +3912,7 @@ let SELECTED_ERA = "2026";
 function curEra(){ return ERAS[(S&&S.era)||SELECTED_ERA]||ERAS["2026"]; }
 // etiqueta de categoría según la era (GP2/GP3 en 2010, F2/F3/FRECA en 2020/2026)
 function catName(cat){ if(cat==="KART") return "Karting"; if(cat==="TP") return "Team Principal"; if(cat==="TEST") return L("Probador","Reserve",{pt:"Piloto de testes"});
-  const v=curEra().cats[cat]; if(!v) return cat;
+  let v=curEra().cats[cat]; if(typeof v==="function") v=v(); if(!v) return cat;   // 🕰️ 1980: la F2 europea se llama F3000 desde 1985
   return Array.isArray(v) ? LA(v) : v; }
 
 // vínculos equipo A → equipo B: el filial nunca supera a la marca madre
@@ -3973,7 +4201,12 @@ const TEAM_LOGOS = {
   "Jordan":"Jordan.png","Jaguar":"Jaguar.png","Minardi":"Minardi.png","Benetton":"Benetton.png",
   "BAR":"BAR.png","Arrows":"Arrows.png","Prost GP":"Prost.png","BMW Sauber":"BMW.png","BMW":"BMW.png",
   "Honda":"Honda.png","Brawn":"Brawn.png","Midland":"midland.png","Super Aguri":"superaguri.png",
-  "Maserati":"maserati.png","Campos Racing":"camposracing21.png"
+  "Maserati":"maserati.png","Campos Racing":"camposracing21.png",
+  // 🕰️ escudos de la era 1980 (y los compradores/restos de los 90 que no tenían): insignias propias en el
+  // mismo formato que las demás (círculo de color + nombre), generadas junto al juego, no bajadas del sitio
+  "Toleman":"Toleman.png","Theodore":"Theodore.png","ATS":"ATS.png","Ensign":"Ensign.png","Shadow":"Shadow.png",
+  "Fittipaldi":"Fittipaldi.png","Zakspeed":"Zakspeed.png","Spirit":"Spirit.png","Haas Lola":"HaasLola.png","Rial":"Rial.png",
+  "Subaru":"Subaru.png","Andrea Moda":"AndreaModa.png","Lamborghini":"Lamborghini.png","Pacific Team Lotus":"PacificTeamLotus.png"
 };
 // 🕰️ ESCUDOS DE ÉPOCA: un mismo equipo con distinto logo según el año (McLaren fue cromado hasta que
 // se volvió papaya; el Williams clásico dio paso al actual). [desdeAño, fichero] — el último que cumple manda.
@@ -4191,8 +4424,17 @@ function yearNow(){ return (S.baseYear||2026)+(S.age-(S.startAge??16)); } // el 
    ⚠️ esto lo ve TODO el juego: la bolsa de lluvia, la de calor, el ambiente de los dilemas y el
    accidente de época. Por eso las vueltas, las curvas y el mes son los reales de cada trazado. */
 function gpList(yr){
-  return [[L("Mónaco","Monaco",{pt:"Mônaco"}),0,78,19,5],["Silverstone",0,52,18,7],["Spa",0,44,19,8],["Monza",0,53,11,9],["Suzuka",0,53,18,10],
-    ["Interlagos",0,71,15,3],["Hungaroring",0,70,14,8],["Barcelona",0,66,14,5,2025],["Montreal",0,70,14,6],["Melbourne",0,58,14,3],
+  return [[L("Mónaco","Monaco",{pt:"Mônaco"}),0,78,19,5],["Silverstone",0,52,18,7],["Spa",1983,44,19,8],["Monza",0,53,11,9],["Suzuka",1987,53,18,10],
+    ["Interlagos",0,71,15,3,1980],["Interlagos",1990,71,15,3],["Hungaroring",1986,70,14,8],["Barcelona",1991,66,14,5,2025],["Montreal",0,70,14,6],["Melbourne",1985,58,14,3],
+    /* 🕰️ LOS CIRCUITOS DE LOS 80 (era 1980). Cada uno con sus años reales: Zolder y Spa se alternan, Brasil pasa
+       por Jacarepaguá, España por Jarama y Jerez, Francia por Paul Ricard y Dijon, y Alemania por Hockenheim y el
+       Nürburgring. Las vueltas y las curvas son aproximadas a propósito: solo ambientan. */
+    ["Zolder",0,70,12,5,1982],["Zolder",1984,70,12,5,1984],["Brands Hatch",0,76,9,7,1986],["Jacarepaguá",1981,61,12,3,1989],
+    ["Österreichring",0,54,10,8,1987],["Zandvoort",0,72,14,8,1985],["Imola",0,63,19,4,2006],["Paul Ricard",0,54,15,6,1990],
+    ["Dijon-Prenois",1981,80,11,7,1984],["Kyalami",0,78,16,3,1985],["Kyalami",1992,78,16,3,1993],["Buenos Aires",0,53,15,1,1981],["Watkins Glen",0,59,11,10,1980],
+    ["Long Beach",0,80,11,3,1983],["Las Vegas",1981,75,14,10,1982],["Detroit",1982,63,17,6,1988],["Dallas",1984,67,10,6,1984],
+    ["Phoenix",1989,81,9,6,1991],["Jarama",1981,80,13,6,1981],["Jerez",1986,69,13,5,1990],["Estoril",1984,70,13,10,1996],
+    ["Nürburgring",1984,67,16,8,1985],[L("México","Mexico City",{pt:"México"}),1986,69,17,6,1992],
     ["Hockenheim",0,67,17,7,2019],[L("Shanghái","Shanghai",{pt:"Xangai"}),2004,56,16,4],
     [L("Singapur","Singapore",{pt:"Singapura"}),2008,62,19,9],[L("Abu Dabi","Abu Dhabi",{pt:"Abu Dhabi"}),2009,58,16,12],
     ["Yeongam",2010,55,18,10,2013],["Buddh",2011,60,16,10,2013],
@@ -4232,12 +4474,13 @@ function paisDeBandera(flag){
   return _PAIS_X_BANDERA[flag]||null;
 }
 const GP_CASA={
-  "Italia":["Monza","Imola"], "España":["Madrid","Barcelona"], "Reino Unido":["Silverstone"],
-  "Alemania":["Hockenheim"], "Brasil":["Interlagos"], "Japón":["Suzuka"],
-  "Australia":["Melbourne"], "Austria":["Red Bull Ring"], "Bélgica":["Spa"],
+  "Italia":["Monza","Imola"], "España":["Madrid","Barcelona","Jerez","Jarama"], "Reino Unido":["Silverstone","Brands Hatch"],
+  "Alemania":["Hockenheim","Nürburgring"], "Brasil":["Interlagos","Jacarepaguá"], "Japón":["Suzuka"],
+  "Australia":["Melbourne"], "Austria":["Red Bull Ring","Österreichring"], "Bélgica":["Spa","Zolder"],
   "Hungría":["Hungaroring"], "Canadá":["Montreal"], "Países Bajos":["Zandvoort"],
-  "Estados Unidos":["Austin","Miami","Las Vegas","Nueva York","Chicago"], "Francia":["Paul Ricard"],
-  "Portugal":["Portimão"], "Corea del Sur":["Yeongam"], "India":["Buddh"],
+  "Estados Unidos":["Austin","Miami","Las Vegas","Nueva York","Chicago","Long Beach","Detroit","Watkins Glen","Dallas","Phoenix"],
+  "Francia":["Paul Ricard","Dijon-Prenois"],
+  "Portugal":["Portimão","Estoril"], "Corea del Sur":["Yeongam"], "India":["Buddh"],
   "Vietnam":["Hanói"], "Sudáfrica":["Kyalami"], "Argentina":["Buenos Aires"],
   "Chile":["Santiago"], "China":["Shanghái"], "México":["México"], "Singapur":["Singapur"]
 };
@@ -4299,7 +4542,7 @@ function toggleRetro(){
 /* los años JUGABLES de cada década; al abrir una década se enseñan los diez, y los demás, apagados
    (Carlos, 19-sep: «deberían poderse ver todos los años de esa década») */
 const RETRO_ANIOS = {
-  carrera: {"1990":["1990"], "2000":["2000"], "2010":["2010"], "2020":["2020","2026"]},
+  carrera: {"1980":["1980"], "1990":["1990"], "2000":["2000"], "2010":["2010"], "2020":["2020","2026"]},
   tp:      {"2020":["2025","2026"]},
 };
 function tpRetroPublico(){ return TP_RETRO_ABIERTO || (typeof relInfo==="function" && relInfo("tp2025").live); }
@@ -5686,6 +5929,7 @@ function startCareer(){
     oxido:0,               // 🛞 reinvención fallida: temporadas que quedan para recuperar el OVR perdido
     oxidoTeam:null,
   };
+  try{ if(typeof modInstall==="function") modInstall(); }catch(e){}   // 🛠️ mod menu (media fija): ver bloque al final
   // 🧬 filial de época + plan de linaje sorteado POR PARTIDA (cada transformación: ¿ocurre? ¿qué año?)
   JUNIOR_OF = {...ERA.juniorOf};
   S.lineage = (ERA.lineage||[]).map(c=>({key:c.key, cur:c.key,
@@ -7681,6 +7925,7 @@ function drvW(y){
   if(yr>=2009) return .48;
   if(yr>=1998) return .50;
   if(yr>=1994) return .54;
+  if(yr<1990) return .62;  // 🕰️ los 80: menos electrónica y más diferencia entre pilotos (el comentario de arriba lo anunciaba)
   return .58;              // hasta 1993 (y más atrás, cuando llegue)
 }
 /* 📅 CUÁNTAS CARRERAS TIENE LA TEMPORADA. Estaba clavado a 24 en todas las eras, así que en 1993 se
@@ -7697,6 +7942,9 @@ function racesIn(y){
   if(yr>=2010) return 19;
   if(yr>=2004) return 18;
   if(yr>=1995) return 17;
+  // 🕰️ los 80: 14 grandes premios en 1980, 15 en 1981 y 1983, 16 el resto de la década
+  if(yr<=1980) return 14;
+  if(yr===1981 || yr===1983) return 15;
   return 16;
 }
 function ptsTable(y){
@@ -7724,6 +7972,7 @@ function dnfRate(y){
   if(yr>=2009) return .18;
   if(yr>=2005) return .26;
   if(yr>=2000) return .30;   // ⚠️ extrapolado
+  if(yr<1990) return .45;    // ⚠️ extrapolado: en los 80 se rompía casi la mitad de la parrilla
   return .38;                // ⚠️ extrapolado
 }
 /* 🎲 cuánto baila un piloto de una carrera a otra respecto a su nivel de temporada. Es el único
@@ -11499,6 +11748,10 @@ const CACHE_SEED = {
   "2026": {"Ferrari":94,"Mercedes":92,"Red Bull":90,"McLaren":90,"Aston Martin":75,"Alpine":70,"Williams":75,"Racing Bulls":52,"Haas":48,"Audi":70,"Cadillac":60,"Sauber":55},
 };
 CACHE_SEED["2025"]=CACHE_SEED["2026"];   // 🕰️ la grandeza de cada casa no cambia en un año
+/* 🕰️ 1980: el pedigrí va por delante del coche del año (Ferrari y McLaren venían de ser campeones y estaban en
+   su peor momento; Williams acababa de empezar a ganar). Con el caché bajo el equipo no puede fichar galácticos. */
+CACHE_SEED["1980"]={"Ferrari":94,"Lotus":88,"Brabham":80,"McLaren":82,"Tyrrell":78,"Williams":78,"Ligier":66,"Renault":70,
+                    "Alfa Romeo":66,"Arrows":52,"Fittipaldi":50,"ATS":42,"Ensign":42,"Osella":40,"Shadow":44};
 /* 💰 un equipo con un cochazo desaprovechado sale al mercado y se lleva a la mejor estrella disponible */
 function poachStar(tn, row){
   if(tpManaged(tn)) return;   // 🧑‍💼 tu equipo no sale de compras sin ti
@@ -22837,5 +23090,91 @@ try{ pendRetry(); }catch(e){}  // 📮 ¿quedó alguna carrera sin enviar la úl
 <!-- Vercel Web Analytics (sitio estático): cuenta visitas y páginas vistas, sin cookies -->
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};</script>
 <script defer src="/_vercel/insights/script.js"></script>
+<!-- 🛠️ MOD MENU · media fija. Botón translúcido arriba a la izquierda. Apagado por defecto: el juego no cambia. -->
+<style>
+#modBtn{position:fixed;top:12px;left:12px;z-index:65;width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+  background:rgba(20,20,28,.35);color:#fff;font-size:18px;line-height:1;cursor:pointer;opacity:.45;backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;padding:0;transition:opacity .15s}
+#modBtn:hover,#modBtn.on,#modBtn.open{opacity:.95}
+#modBtn.on{border-color:#ffce3a;box-shadow:0 0 0 2px rgba(255,206,58,.35)}
+#modPanel{position:fixed;top:58px;left:12px;z-index:65;width:264px;max-width:calc(100vw - 24px);display:none;padding:14px;border-radius:14px;
+  background:rgba(20,20,28,.88);color:#fff;font:600 13px/1.3 system-ui,sans-serif;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#modPanel.open{display:block}
+#modPanel h4{margin:0 0 10px;font-size:14px;font-weight:800}
+#modPanel .mrow{margin:0 0 12px}
+#modPanel .mhead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+#modPanel label.sw{display:flex;align-items:center;gap:7px;cursor:pointer}
+#modPanel input[type=range]{width:100%;accent-color:#ffce3a}
+#modPanel input[type=number]{width:56px;padding:3px 5px;border-radius:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font:inherit;text-align:center}
+#modPanel small{display:block;opacity:.65;font-weight:500;font-size:11px;margin-top:2px}
+</style>
+<script>
+/* Dos valores independientes: `pil` (media del piloto, OVR) y `tp` (media del jefe de equipo = su PRESTIGIO,
+   lo que la tarjeta del jefe muestra en lugar del OVR). null = apagado → juego normal.
+   Se inyecta como propiedad con getter sobre S (modInstall, llamado desde startCareer): así vale para TODOS los
+   sitios del juego que leen S.ovr / S.tpPrest, y la progresión sigue calculando sobre el valor fijo sin romperlo. */
+const MOD={ pil:null, car:null, prest:null, PIL:[40,99], CAR:[55,99], PREST:[5,99] };
+try{ const j=JSON.parse(localStorage.getItem("f1g_mod")||"{}"); if(typeof j.pil==="number") MOD.pil=j.pil; if(typeof j.car==="number") MOD.car=j.car;
+  if(typeof j.prest==="number") MOD.prest=j.prest; else if(typeof j.tp==="number") MOD.prest=j.tp; }catch(e){}   // `tp` = clave de la versión anterior (era el prestigio)
+function modSave(){ try{ localStorage.setItem("f1g_mod",JSON.stringify({pil:MOD.pil,car:MOD.car,prest:MOD.prest})); }catch(e){} }
+/* `car` = valoración del coche de TU equipo en modo jefe: vive en S.f1perf[S.tpTeam]. f1perf es un objeto que el juego
+   reasigna entero en varios sitios, así que S.f1perf devuelve un Proxy que contesta MOD.car cuando se lee la clave de tu
+   equipo; las escrituras van al objeto real (al apagar el mod, el coche sigue desde el último valor fijado). */
+const _modPx=new WeakMap();
+function _modWrapPerf(o){
+  if(!o || typeof o!=="object") return o;
+  let p=_modPx.get(o);
+  if(!p){ p=new Proxy(o,{ get(t,k,r){ if(MOD.car!=null && typeof k==="string" && S && S.cat==="TP" && S.tpTeam && k===S.tpTeam) return MOD.car; return Reflect.get(t,k,r); } }); _modPx.set(o,p); }
+  return p;
+}
+function modInstall(){
+  if(!S || S._modOn) return;
+  let ov=S.ovr, tp=S.tpPrest, fp=S.f1perf;
+  Object.defineProperty(S,"ovr",{enumerable:true,configurable:true,
+    get(){ return (MOD.pil!=null && this.cat!=="TP") ? MOD.pil : ov; }, set(v){ ov=v; }});
+  Object.defineProperty(S,"tpPrest",{enumerable:true,configurable:true,
+    get(){ return (MOD.prest!=null && this.cat==="TP") ? MOD.prest : tp; }, set(v){ tp=v; }});
+  Object.defineProperty(S,"f1perf",{enumerable:true,configurable:true,
+    get(){ return _modWrapPerf(fp); }, set(v){ fp=v; }});
+  Object.defineProperty(S,"_modOn",{value:true,enumerable:false});
+}
+function modSyncCar(){   // deja el valor también en el objeto real, para que apagar el mod no pegue un salto
+  try{ if(MOD.car!=null && S && S.cat==="TP" && S.tpTeam){ S.f1perf[S.tpTeam]=MOD.car; if(S.f1target) S.f1target[S.tpTeam]=MOD.car; } }catch(e){}
+}
+function modOn(){ return MOD.pil!=null || MOD.car!=null || MOD.prest!=null; }
+function modRefresh(){
+  try{ if(typeof S!=="undefined" && S){ if(S.cat==="TP" && typeof tpRefreshCard==="function") tpRefreshCard(); else if(typeof refreshCard==="function") refreshCard(); } }catch(e){}
+}
+(function(){
+  const clamp=(v,r)=>Math.max(r[0],Math.min(r[1],Math.round(+v)||r[0]));
+  const btn=document.createElement("button"); btn.id="modBtn"; btn.type="button"; btn.textContent="⚙"; btn.title="Mod menu: media fija";
+  const pan=document.createElement("div"); pan.id="modPanel";
+  function row(key,title,hint,range){
+    const on=MOD[key]!=null, val=on?MOD[key]:Math.round((range[0]+range[1])/2);
+    return `<div class="mrow" data-k="${key}"><div class="mhead"><label class="sw"><input type="checkbox" ${on?"checked":""}> ${title}</label>
+      <input type="number" min="${range[0]}" max="${range[1]}" value="${val}"></div>
+      <input type="range" min="${range[0]}" max="${range[1]}" value="${val}"><small>${hint}</small></div>`;
+  }
+  function build(){
+    const inTP=(typeof S!=="undefined" && S) ? S.cat==="TP" : null;
+    pan.innerHTML=`<h4>🛠️ Media fija</h4>`
+      + (inTP!==true ? row("pil","Modo piloto","Tu OVR queda fijo toda la partida.",MOD.PIL) : "")
+      + (inTP!==false? row("car","Team Principal: coche","Valoración del coche de tu equipo, fija toda la partida.",MOD.CAR) : "")
+      + (inTP!==false? row("prest","Team Principal: prestigio","Tu fama de jefe (opcional).",MOD.PREST) : "")
+      + `<small>Apagado = juego normal.</small>`;
+    pan.querySelectorAll(".mrow").forEach(r=>{
+      const k=r.dataset.k, rg=MOD[k.toUpperCase()], chk=r.querySelector('input[type=checkbox]'),
+            num=r.querySelector('input[type=number]'), sld=r.querySelector('input[type=range]');
+      const apply=()=>{ MOD[k]=chk.checked?clamp(num.value,rg):null; modSave(); modSyncCar(); btn.classList.toggle("on",modOn()); modRefresh(); };
+      chk.onchange=apply;
+      sld.oninput=()=>{ num.value=sld.value; chk.checked=true; apply(); };
+      num.onchange=()=>{ num.value=clamp(num.value,rg); sld.value=num.value; chk.checked=true; apply(); };
+    });
+  }
+  btn.onclick=()=>{ const o=!pan.classList.contains("open"); if(o) build(); pan.classList.toggle("open",o); btn.classList.toggle("open",o); };
+  btn.classList.toggle("on",modOn());
+  document.body.appendChild(btn); document.body.appendChild(pan);
+})();
+</script>
 </body>
 </html>
