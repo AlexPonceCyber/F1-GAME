@@ -6232,6 +6232,8 @@ function arrTeamNow(pref){ if(!pref) return null;
    candidatos y nunca deja el bote vacío. Bajarlo a 21 empezaría a excluir debuts legítimos. */
 let EDAD_CANTERA=23;
 function mkRookie(noCross, forTeam){
+  /* 🏁 los de la cantera que viste en los podios de abajo (F4, F3, Regional, F2…) son los primeros candidatos a debutar */
+  if(!S._forceRookie){ try{ const _js=(typeof jrStarTake==="function") ? jrStarTake(noCross, forTeam) : null; if(_js) return _js; }catch(e){} }
   // 🎬 llegadas históricas (retro): los pilotos reales debutan ~cuando lo hicieron en la realidad.
   // Si el asiento libre es el de SU equipo real → casi seguro entra ahí; si llevan 2+ años esperando,
   // entran en el primer hueco que salga (Antonelli puede acabar debutando en otro equipo, como pediste).
@@ -11116,6 +11118,7 @@ function simSeason(){
   else if(S.cat==="TEST"){ result = simTest(row,st); bgF1Season(row); }
   else if(S.cat==="ADV"){ result = simAdventure(row); bgF1Season(row); }
   else { result = simJunior(row,st); bgF1Season(row); }
+  try{ if(typeof catPodioAfter==="function") catPodioAfter(row); }catch(e){}   // 🏁 el podio de ESTA categoría (y la cantera sigue su curso)
   // jerarquía: solo cambia por una brecha CLARA y sostenida con el mismo compañero
   if(S.cat==="F1" && S.team && S.seats[S.team.name]){
     const mate=teammateOf(S.team.name);
@@ -11220,18 +11223,20 @@ function simSeason(){
   // el techo real ronda 88-93; solo un talento excepcional roza el 95.
   let g;
   if(S.cat==="TP"){ g=0; } // 🧑‍💼 el jefe no tiene OVR que crecer: su "nivel" es el prestigio y se mueve en simTP
-  else if(S.cat==="ADV"){
+  else if(S.cat==="ADV" && S.youngDetour && S.age<=28){
+    // 🌏 joven curtiéndose en Super Fórmula/Indy/FE: NO te oxidas, sigues creciendo (así te ganas el billete a la F1)
+    const la=S.adventures.at(-1);
+    const good = la && (la.win || la.champPos<=3);
+    g = rnd(1.0,2.3) + (good?.8:0) + st.growth*.35;
+  }
+  else if(S.cat==="ADV" && (S.f1Seasons||0)>=1 && S.age>=31){
+    // un VETERANO que deja la F1 por otro mundo pierde punta: su OVR se OXIDA (menos si es técnico/versátil).
+    // Un joven que pisó la F1 y se va a otro mundo NO: crece con la curva de siempre (la valoración sube igual en todos los mundos).
     const sr=SERIES[S.advSeries];
-    if(S.youngDetour && S.age<=28){
-      // 🌏 joven curtiéndose en Super Fórmula/Indy/FE: NO te oxidas, sigues creciendo (así te ganas el billete a la F1)
-      const la=S.adventures.at(-1);
-      const good = la && (la.win || la.champPos<=3);
-      g = rnd(1.0,2.3) + (good?.8:0) + st.growth*.35;
-    } else {
-      // fuera de la F1 pierdes punta: tu OVR se OXIDA (menos si eres técnico/versátil)
-      g = -(sr?sr.decay:1) - (S.age>=34?0.6:0) + (sel.style==="tecnico"?0.3:0) + st.growth*.2;
-    }
+    g = -(sr?sr.decay:1) - (S.age>=34?0.6:0) + (sel.style==="tecnico"?0.3:0) + st.growth*.2;
   } else {
+    /* 🌎 Y quien NUNCA ha pisado la F1 (empezó en rallies o resistencia, o se fue a otro mundo desde la escalera)
+       crece con la MISMA curva que en las fórmulas: da igual el mundo que elijas, la valoración sube igual. */
     if(S.age<=15) g=rnd(0,.4);          // 14-15: kart de crío, casi PLANO → empezar joven es puro sabor, NO poder (misma trayectoria de OVR que quien empieza con 16)
     else if(S.age<=19) g=rnd(2.5,5.5);   // 16-19: explosión de desarrollo (4 años iguales para todos, empieces con 14/15/16)
     else if(S.age<=23) g=rnd(1.6,3.6);
@@ -11250,7 +11255,8 @@ function simSeason(){
     }
     g += st.growth*.4;
     if(S.cat!=="F1" && S.team && S.team.dev) g += S.team.dev; // perfil del proyecto junior: +formación / -verde
-    if(result.pos!=null && result.pos<=3 && S.age<=31) g+=.5;
+    const _posG = result.pos ?? (S.cat==="ADV" && row.advResult ? row.advResult.champPos : null);   // 🌎 un podio en rallies o resistencia también cuenta
+    if(_posG!=null && _posG<=3 && S.age<=31) g+=.5;
     if(S.cat==="TEST") g*=.7;
     if(g>0) g*=Math.max(.13,(95-S.ovr)/22); // el techo se vuelve casi vertical hacia el 92
   }
@@ -12298,6 +12304,9 @@ function renderF1State(){
   { const _bd=document.getElementById("fsMoreD"), _bc=document.getElementById("fsMoreC");
     FS_OPEN.d=FS_OPEN.c=true;
     if(_bd) _bd.style.display="none"; if(_bc) _bc.style.display="none"; }
+  /* 🏁 fuera de la F1 (karting, F4, F3, Regional, F2, series de fuera) el panel enseña el podio de TU categoría; la F1
+     sigue a un botón de distancia y su historial por años no se toca (ver catPanelHook) */
+  try{ if(typeof catPanelHook==="function" && catPanelHook()) return; }catch(e){}
   if(!S.lastTop3) return;
   $("f1state").style.display="block";
   /* 🗓️ el año encabeza la tarjeta como en «Años anteriores» (Carlos, 23-sep) y los títulos de las
@@ -12959,7 +12968,7 @@ function simAdventure(row){
 // probabilidad de que la F1 te vuelva a llamar: fama + OVR − años fuera − edad
 function returnChance(){
   const fameT=Math.min(6, fameScore()/180);
-  if(S.youngDetour){
+  if(S.youngDetour || (S.f1Seasons||0)===0){   // nunca has pisado la F1 (tampoco si empezaste en rallies o resistencia): es un SALTO, no un regreso
     // 🌏 vía joven: esto es F1-Glory, la F1 acaba tirando… pero solo si te has DESARROLLADO de verdad (el OVR manda:
     // no te llaman siendo un farolillo rojo). Brillar acelera el billete. Si te haces mayor sin madurar, la puerta se cierra.
     const la=S.adventures.at(-1);
@@ -13039,25 +13048,117 @@ function stuckDeadEnd(){
     $("decRecap").style.display="none";
     renderSpecialOptions([
       {special:true, em:"🌏", name:L("Buscarte la vida fuera","Make your name elsewhere",{pt:"Se virar lá fora"}), sub:L("Super Fórmula, IndyCar o Fórmula E","Super Formula, IndyCar or Formula E",{pt:"Super Fórmula, IndyCar ou Fórmula E"}), color:"#6d28d9", onClick:()=>chooseYoungSeries()},
+      mundoOption(),   // 🌎 y, además, cualquiera de los demás mundos
       {special:true, em:"🏁", name:L("Retirarse","Retire",{pt:"Retirar-se"}), sub:L("Se acabó el sueño de la F1","The F1 dream is over",{pt:"Acabou o sonho da F1"}), color:"#71717c", onClick:endCareer}
     ]);
   } else washedOut();
 }
-function chooseAdventureSeries(){
-  setDecision(L("🌎 ¿Dónde te lanzas?","🌎 Where do you go?",{pt:"🌎 Para onde você se joga?"}),L("Elige tu aventura fuera de la Fórmula 1. Cada mundo es distinto… y ninguna victoria está garantizada.","Choose your adventure outside Formula 1. Each world is different… and no win is guaranteed.",{pt:"Escolha a sua aventura fora da Fórmula 1. Cada mundo é diferente… e nenhuma vitória está garantida."}));
+/* 🌎 LOS MUNDOS (Carlos, 2-oct-2026). Antes la carrera tenía UN camino de verdad (las fórmulas) y lo demás eran
+   «aventuras» que el juego ofrecía al azar, de tres en tres, solo a veteranos o a quien se atascaba. Ahora:
+     · al salir del karting eliges entre FÓRMULAS, RESISTENCIA y RALLIES (mundosIniciales);
+     · y CADA AÑO, estés donde estés, hay un botón «Irte a otro mundo» (mundoOption) que enseña TODAS las
+       opciones disponibles —las fórmulas y cada serie que exista en el año de la partida—, no una muestra.
+   Las series de fuera siguen siendo `startAdventure`; las fórmulas, el mercado de siempre (aFormulas). */
+const MUNDOS_PRINCIPALES=["lemans","wrc"];   // Resistencia y Rallies: van arriba, junto a las fórmulas
+function mundoClaves(){
+  const all=Object.keys(SERIES).filter(serieOK).filter(k=>!(S.cat==="ADV" && k===S.advSeries));   // ⏳ solo las que ya existen (la Fórmula E, desde 2014)
+  const primeras=MUNDOS_PRINCIPALES.filter(k=>all.includes(k));
+  return primeras.concat(all.filter(k=>!primeras.includes(k)));
+}
+function mundoOpcionSerie(k){
+  const s=SERIES[k];
+  return {special:true, em:s.em, name:serName(k),
+    sub:serSub(k)+(s.triple?L(" · 👑 Triple Corona"," · 👑 Triple Crown",{pt:" · 👑 Tríplice Coroa"}):""), color:s.col, onClick:()=>irAMundo(k)};
+}
+function irAMundo(k){ S._mundoElegido=true; startAdventure(k); }
+function mundoOpcionFormulas(){
+  const vet=(S.f1Seasons||0)>0;
+  return {special:true, em:"🏎️", color:"#e10600",
+    name: vet ? L("Volver a las fórmulas","Back to the formulas",{pt:"Voltar às fórmulas"}) : L("Fórmulas","Formula racing",{pt:"Fórmulas"}),
+    sub:  vet ? L("Intentar que la F1 te vuelva a abrir una puerta","Try to get F1 to open a door again",{pt:"Tentar que a F1 abra uma porta de novo"})
+              : L(`La escalera clásica: ${catName("F4")}, ${catName("F3")}, ${catName("F2")}… y la F1`,`The classic ladder: ${catName("F4")}, ${catName("F3")}, ${catName("F2")}… and F1`,{pt:`A escada clássica: ${catName("F4")}, ${catName("F3")}, ${catName("F2")}… e a F1`}),
+    onClick:()=>aFormulas()};
+}
+/* de cualquier serie de fuera a las fórmulas. Si ya pisaste la F1, es un intento de regreso (probabilístico, como
+   siempre). Si no, entras por el peldaño que tu nivel pide; y un fuera de serie (84+) llama directamente a su puerta. */
+/* 🏎️ NADIE SALTA A LA F1 DESDE OTRO MUNDO SIN PASAR POR UN MONOPLAZA (Carlos, 2-oct-2026: «IndyCar es un paso por
+   debajo de la F1: a no ser que seas muy muy muy bueno no te deberían ofrecer un contrato directo, tendrías que pasar
+   por la F2 a ver cómo te desenvuelves en monoplazas… también viniendo de rallies, de WEC y demás»). Solo en la era
+   2026 de momento. Puede saltar directo: quien ya ha pisado la F1, quien ya demostró en la F2 o de probador, y el
+   EXCEPCIONAL (92+ de nivel y un título o una carrera mítica a la espalda). El resto, por la F2. */
+function monoplazaProbado(){ return (S.seasons||[]).some(s=>s.cat==="F2"||s.cat==="TEST"); }
+function excepcional(){ return S.ovr>=92 && ((S.advTitles||0)>=1 || (S.adventures||[]).some(a=>a.win)); }
+function puedeSaltarAF1(){ return S.era!=="2026" || (S.f1Seasons||0)>0 || monoplazaProbado() || excepcional(); }
+function aF2(){
+  S._mundoElegido=true;
+  setDecision(L(`Pasar por la ${catName("F2")}`,`Go through ${catName("F2")}`,{pt:`Passar pela ${catName("F2")}`}),
+    L(`Los equipos de F1 no te dan un volante sin verte en un monoplaza: da igual lo que hayas ganado en ${S.advSeries?serName(S.advSeries):"otras categorías"}. Un año —o dos— de ${catName("F2")} es el examen. Si lo apruebas, la F1 te abre la puerta.`,
+      `F1 teams won't hand you a seat without seeing you in a single-seater, whatever you've won in ${S.advSeries?serName(S.advSeries):"other series"}. A year —or two— of ${catName("F2")} is the exam. Pass it and F1 opens the door.`,
+      {pt:`As equipes de F1 não te dão um volante sem te ver num monoposto, não importa o que você tenha vencido em ${S.advSeries?serName(S.advSeries):"outras categorias"}. Um ano —ou dois— de ${catName("F2")} é a prova. Se passar, a F1 abre a porta.`}));
   $("decRecap").style.display="none";
-  // máximo 3 series (+ retirarse): semicableado por nacionalidad + azar (no todas de golpe).
-  // ⏳ solo series que YA EXISTEN en el año de la partida (la Fórmula E, desde 2014)
-  const all=Object.keys(SERIES).filter(serieOK);
-  const chosen=[];
-  const fav=natAff().series.filter(k=>all.includes(k));
-  if(fav.length && ch(.75)) chosen.push(fav[irnd(0,fav.length-1)]); // tu país tira hacia una serie afín
-  const rest=all.filter(k=>!chosen.includes(k));
-  while(chosen.length<3 && rest.length) chosen.push(rest.splice(irnd(0,rest.length-1),1)[0]);
-  const opts=chosen.map(k=>{ const s=SERIES[k]; return {special:true, em:s.em, name:serName(k),
-    sub:serSub(k)+(s.triple?L(" · 👑 Triple Corona"," · 👑 Triple Crown",{pt:" · 👑 Tríplice Coroa"}):""), color:s.col, onClick:()=>startAdventure(k)}; });
-  opts.push({special:true, em:"🏁", name:L("Retirarse","Retire",{pt:"Retirar-se"}), sub:L("Colgar el casco","Hang up your helmet",{pt:"Pendurar o capacete"}), color:"#71717c", onClick:endCareer});
+  renderOffers(juniorOffers(F2_TEAMS,"F2"), false);
+  scrollToDecision();
+}
+function aFormulas(){
+  S._mundoElegido=true;
+  if((S.f1Seasons||0)>0 || (S.ovr>=84 && puedeSaltarAF1())){ attemptReturn(); return; }
+  const cat = S.ovr>=(S.era==="2026"?75:78) ? "F2" : S.ovr>=68 ? "F3" : "F4";
+  const pool = cat==="F2" ? F2_TEAMS : cat==="F3" ? F3_TEAMS : F4_TEAMS;
+  setDecision(L(`Entrar por la ${catName(cat)}`,`Enter through ${catName(cat)}`,{pt:`Entrar pela ${catName(cat)}`}),
+    L(`Dejas lo tuyo y te subes a un monoplaza. Tu nivel te abre la puerta de la ${catName(cat)}: a partir de aquí, la escalera de siempre.`,
+      `You leave your world behind and climb into a single-seater. Your level opens the ${catName(cat)} door: from here on, the usual ladder.`,
+      {pt:`Você deixa o seu mundo e sobe num monoposto. O seu nível abre a porta da ${catName(cat)}: a partir daqui, a escada de sempre.`}));
+  $("decRecap").style.display="none";
+  renderOffers(juniorOffers(pool,cat), false);
+  scrollToDecision();
+}
+/* guarda la pantalla actual para poder VOLVER a ella desde el menú de mundos sin volver a sortear nada */
+function mundoGuardaPantalla(){
+  if(S.cat==="ADV") return ()=>advOffers();     // desde fuera de las fórmulas la pantalla de partida es la del menú de aventura
+  const d=S._lastDecision, o=S._lastOffers;
+  return ()=>{ if(d) setDecision(d.t,d.s,d.p,d.o); if(o) renderOffers(o.offers,o.withRetire); else nextOffers(); scrollToDecision(); };
+}
+function chooseWorld(opts){
+  opts=opts||{};
+  const volver=opts.sinVolver ? null : mundoGuardaPantalla();
+  const claves=mundoClaves();
+  setDecision(opts.titulo || L("🌎 Irte a otro mundo","🌎 Move to another world",{pt:"🌎 Ir para outro mundo"}),
+    opts.sub || L(`Todas las puertas están abiertas: ${claves.length+(S.cat==="ADV"?1:0)} opciones. Cambiar de disciplina no cierra nada: la valoración sigue creciendo igual y siempre podrás volver a cambiar.`,
+                  `Every door is open: ${claves.length+(S.cat==="ADV"?1:0)} options. Switching discipline closes nothing: your rating keeps growing the same and you can always switch again.`,
+                  {pt:`Todas as portas estão abertas: ${claves.length+(S.cat==="ADV"?1:0)} opções. Trocar de disciplina não fecha nada: a avaliação continua crescendo igual e você sempre poderá trocar de novo.`}));
+  $("decRecap").style.display="none";
+  const out=[];
+  if(S.cat==="ADV") out.push(mundoOpcionFormulas());          // desde fuera, las fórmulas son una puerta más
+  claves.forEach(k=>out.push(mundoOpcionSerie(k)));
+  if(volver) out.push({special:true, em:"↩︎", name:L("Quedarme donde estoy","Stay where I am",{pt:"Ficar onde estou"}), sub:L("Volver a las ofertas","Back to the offers",{pt:"Voltar às ofertas"}), color:"#71717c", onClick:volver});
+  if(opts.conRetiro) out.push({special:true, em:"🏁", name:L("Retirarse","Retire",{pt:"Retirar-se"}), sub:L("Colgar el casco","Hang up your helmet",{pt:"Pendurar o capacete"}), color:"#71717c", onClick:endCareer});
+  renderSpecialOptions(out);
+  scrollToDecision();
+}
+function chooseAdventureSeries(){ chooseWorld({conRetiro:true}); }   // las rutas viejas («Buscar aventura», «Conquistar otro mundo»…) enseñan ahora TODO
+/* el botón de cada invierno, en las ofertas de cualquier categoría */
+function mundoOption(){
+  const n=mundoClaves().length+(S.cat==="ADV"?1:0);
+  return {special:true, id:"mundo", em:"🌎", color:"#6d28d9",
+    name:L("Irte a otro mundo","Move to another world",{pt:"Ir para outro mundo"}),
+    sub:L(`Resistencia, rallies, Indy, NASCAR, Dakar… ${n} opciones`,`Endurance, rallies, Indy, NASCAR, Dakar… ${n} options`,{pt:`Endurance, ralis, Indy, NASCAR, Dakar… ${n} opções`}),
+    onClick:()=>chooseWorld()};
+}
+/* la encrucijada al salir del karting: los tres mundos (y, si te apetece, todo lo demás desde el menú de cada año) */
+function mundosIniciales(){
+  setDecision(L("🛣️ Se acaba el karting: ¿qué mundo es el tuyo?","🛣️ Karting is over: which world is yours?",{pt:"🛣️ O kart acabou: qual mundo é o seu?"}),
+    L("Tres caminos igual de válidos: tu valoración crece igual en los tres. Y no es para siempre: cada año podrás irte a cualquier otro mundo.",
+      "Three equally valid roads: your rating grows the same in all three. And it's not forever: every year you'll be able to move to any other world.",
+      {pt:"Três caminhos igualmente válidos: a sua avaliação cresce igual nos três. E não é para sempre: a cada ano você poderá ir para qualquer outro mundo."}));
+  $("decRecap").style.display="none";
+  const opts=[
+    {special:true, em:"🏎️", color:"#e10600", name:L("Fórmulas","Formula racing",{pt:"Fórmulas"}),
+     sub:L(`La escalera clásica hacia la F1: ${catName("F4")}, ${catName("F3")}, ${catName("F2")}…`,`The classic ladder to F1: ${catName("F4")}, ${catName("F3")}, ${catName("F2")}…`,{pt:`A escada clássica rumo à F1: ${catName("F4")}, ${catName("F3")}, ${catName("F2")}…`}),
+     onClick:()=>{ S._mundoElegido=true; nextOffers(); }}
+  ];
+  MUNDOS_PRINCIPALES.filter(serieOK).forEach(k=>{ const o=mundoOpcionSerie(k); o.sub=serSub(k)+(SERIES[k].triple?L(" · 👑 Triple Corona"," · 👑 Triple Crown",{pt:" · 👑 Tríplice Coroa"}):""); opts.push(o); });
   renderSpecialOptions(opts);
+  scrollToDecision();
 }
 function startAdventure(key, sinTemporada){
   track("adventure", {series: key, age: S.age, era: S.era||"2026"});
@@ -13090,16 +13191,22 @@ function advOffers(){
         : ar.champPos<=3 ? L(`🥉 ${ar.champPos}º del campeonato`,`🥉 P${ar.champPos} in the championship`,{pt:`🥉 ${ar.champPos}º do campeonato`})
         : L(`${ar.champPos}º del campeonato`,`P${ar.champPos} in the championship`,{pt:`${ar.champPos}º do campeonato`}); }
   setDecision(`${sr.em} `+(resTxt||L("Tu vida fuera de la F1","Your life outside F1",{pt:"A sua vida fora da F1"})), `${nm} ${yearNow()-1} · `+L("¿Y ahora qué?","What now?",{pt:"E agora?"}));
-  const first = S.youngDetour && (S.f1Seasons||0)===0; // aún no ha pisado la F1: es un SALTO, no un regreso
+  const first = (S.f1Seasons||0)===0; // aún no ha pisado la F1: es un SALTO, no un regreso (también si empezaste directamente en rallies o resistencia)
   const opts=[
     {special:true, em:sr.em, name:L("Seguir en ","Stay in ",{pt:"Continuar na "})+nm, sub: first?L("Otro año para ganarte la F1","Another year to earn your F1 shot",{pt:"Mais um ano para conquistar a F1"}):L("Otra temporada de aventura","Another adventure season",{pt:"Mais uma temporada de aventura"}), color:sr.col, onClick:()=>startSeasonRun()},
     {special:true, em:"🔙", name: first?L("Dar el salto a la F1","Make the leap to F1",{pt:"Dar o salto para a F1"}):L("Intentar volver a la F1","Try to return to F1",{pt:"Tentar voltar para a F1"}), sub: back>=.6?L("Los equipos te tienen en el radar","Teams have you on their radar",{pt:"As equipes têm você no radar"}):back>=.3?L("Habrá que convencer a alguien","You'll have to convince someone",{pt:"Vai ser preciso convencer alguém"}): first?L("Difícil aún: sigue creciendo y dando la cara","Tough still: keep growing and showing up",{pt:"Ainda difícil: continue crescendo e dando a cara"}):L("Difícil: llevas tiempo fuera y algo oxidado","Tough: you've been away a while and a bit rusty",{pt:"Difícil: você está fora há tempo e meio enferrujado"}), color:"#e10600", onClick:()=>attemptReturn()},
   ];
-  if(S.appetite>=1) opts.push({special:true, em:"🌎", name:L("Probar otra competición","Try another series",{pt:"Testar outra competição"}), sub:L("El gusanillo aventurero","The adventurer's itch",{pt:"A vontade de aventura"}), color:"#6d28d9", onClick:()=>chooseAdventureSeries()});
+  if(!puedeSaltarAF1()){   // 🏎️ sin pasar por un monoplaza no hay F1: el atajo directo se cambia por la F2
+    opts[1]={special:true, em:"🏎️", color:"#e10600", name:L(`Pasar por la ${catName("F2")}`,`Go through ${catName("F2")}`,{pt:`Passar pela ${catName("F2")}`}),
+      sub:L("Nadie te da un volante de F1 sin verte en un monoplaza: demuéstralo en la F2","Nobody hands you an F1 seat without seeing you in a single-seater: prove it in F2",{pt:"Ninguém te dá um volante de F1 sem te ver num monoposto: prove na F2"}),
+      onClick:()=>aF2()};
+  }
+  opts.push(mundoOption());   // 🌎 SIEMPRE: cada año puedes irte a otro mundo, con todas las opciones (ya no hace falta «apetito aventurero»)
   opts.push({special:true, em:"🏁", name:L("Retirarse","Retire",{pt:"Retirar-se"}), sub:L("Colgar el casco como aventurero","Hang up your helmet as an adventurer",{pt:"Pendurar o capacete como aventureiro"}), color:"#71717c", onClick:endCareer});
   renderSpecialOptions(opts);
 }
 function attemptReturn(){
+  if((S.f1Seasons||0)===0 && !puedeSaltarAF1()){ aF2(); return; }   // red: por esta puerta nadie entra a la F1 sin pasar por la F2
   if(ch(returnChance())){ returnF1Offers(); }
   else {
     renderRecap();
@@ -13117,7 +13224,7 @@ function returnF1Offers(){
   cands=feudFilter(cands.filter(t=>!S.burned[t.name]&&!S.neverHire[t.name]&&rbOk(t)));
   if(!cands.length) cands=sorted.filter(t=>!S.neverHire[t.name]).slice(-4);
   const o=[]; pickN(cands,Math.min(3,cands.length)).forEach(t=>o.push({team:t, role:roleFor(t.name)}));
-  const leap = S.youngDetour && (S.f1Seasons||0)===0;
+  const leap = (S.f1Seasons||0)===0;
   setDecision(leap?L("🏎️ ¡La F1 te abre la puerta!","🏎️ F1 opens the door!",{pt:"🏎️ A F1 te abre a porta!"}):L("🔙 ¡De vuelta en la Fórmula 1!","🔙 Back in Formula 1!",{pt:"🔙 De volta à Fórmula 1!"}),
     leap?L("Tu grind fuera de la escalera dio fruto: un equipo apuesta por ti para dar el salto. Elige tu debut:","Your grind outside the ladder paid off: a team bets on you for the leap. Choose your debut:",{pt:"A sua batalha fora da escada deu fruto: uma equipe aposta em você para dar o salto. Escolha a sua estreia:"})
         :L("Un equipo apuesta por tu experiencia y tu tirón mediático. Elige tu regreso:","A team bets on your experience and star power. Choose your comeback:",{pt:"Uma equipe aposta na sua experiência e no seu apelo de mídia. Escolha a sua volta:"}));
@@ -13273,6 +13380,9 @@ function nextOffers(){
       title=L("Un año más de karting","One more year in karting",{pt:"Mais um ano de kart"});
       sub=L("Aún eres muy joven para los monoplazas. Sigue puliendo tu talento en los karts.","You're still too young for single-seaters. Keep polishing your talent in karts.",{pt:"Você ainda é muito novo para os monopostos. Continue lapidando o seu talento no kart."});
       juniorOffers(KART_TEAMS,"KART").forEach(x=>o.push(x));
+    } else if(!S._mundoElegido){
+      mundosIniciales();   // 🛣️ al salir del karting: fórmulas, resistencia o rallies
+      return;
     } else {
       title=L(`Primer coche: la ${catName("F4")}`,`First car: ${catName("F4")}`,{pt:`Primeiro carro: a ${catName("F4")}`});
       sub=L(`Dejas los karts. La ${catName("F4")} es tu primer monoplaza: ¿proyecto ganador o programa de desarrollo?`,`You leave karting behind. ${catName("F4")} is your first single-seater: winning project or development programme?`,{pt:`Você deixa o kart. A ${catName("F4")} é o seu primeiro monoposto: projeto vencedor ou programa de desenvolvimento?`});
@@ -13457,9 +13567,10 @@ function nextOffers(){
     const _em = edadMercado();   // 👴 en el reto de Loeb el paddock le quita años
     const pOut = stillWanted ? 0 : (_em>=40?.4 : _em>=38?.25 : _em>=36?.12 : 0);
     if(Math.random()<pOut){
-      setDecision(L("El paddock pasa página","The paddock moves on",{pt:"O paddock vira a página"}),L("Los años pesan y los resultados ya no acompañan: esta vez el teléfono no suena.","The years weigh and the results no longer follow: this time the phone doesn't ring.",{pt:"Os anos pesam e os resultados já não acompanham: desta vez o telefone não toca."}));
-      $("offerList").innerHTML="";
-      setTimeout(endCareer,1500);
+      /* 🌎 el paddock de la F1 pasa página, pero eso ya no es el final: quedan los demás mundos */
+      chooseWorld({sinVolver:true, conRetiro:true,
+        titulo:L("El paddock pasa página","The paddock moves on",{pt:"O paddock vira a página"}),
+        sub:L("Los años pesan y los resultados ya no acompañan: esta vez el teléfono de la F1 no suena. Pero hay otros mundos que sí te quieren.","The years weigh and the results no longer follow: this time F1's phone doesn't ring. But there are other worlds that do want you.",{pt:"Os anos pesam e os resultados já não acompanham: desta vez o telefone da F1 não toca. Mas há outros mundos que te querem."})});
       return;
     }
     // reputación para las ofertas: nivel + palmarés + resultado reciente − edad + un poco de FAMA
@@ -13479,7 +13590,11 @@ function nextOffers(){
       else S._repSobre=0;
     }
     if(S.tooHumble){ rep-=6; S.tooHumble=false; sub=L("😐 Un proyecto ganador te descarta: dudan de tu ambición. ","😐 A winning project passes on you: they doubt your ambition. ",{pt:"😐 Um projeto vencedor te descarta: duvidam da sua ambição. "}); }
-    if(rep<68&&_em>=33){ endCareer(); return; }
+    if(rep<68&&_em>=33){
+      chooseWorld({sinVolver:true, conRetiro:true,
+        titulo:L("Sin sitio en la F1","No place left in F1",{pt:"Sem lugar na F1"}),
+        sub:L("Ningún equipo de F1 te ofrece ya un volante. La carrera no tiene por qué acabar aquí: otros mundos te esperan.","No F1 team offers you a seat any more. The career doesn't have to end here: other worlds await.",{pt:"Nenhuma equipe de F1 te oferece mais um volante. A carreira não precisa acabar aqui: outros mundos te esperam."})});
+      return; }
     // el perdón llega con los años; a un CAMPEÓN se le vuelve a llamar antes (2 años vs 4) y más fácil
     const champ=(S.titles.f1||0)>0;
     Object.entries(S.burned).forEach(([tm,age])=>{
@@ -13614,9 +13729,9 @@ function nextOffers(){
       }
     }
     if(!o.length){
-      setDecision(L("Sin ofertas","No offers",{pt:"Sem ofertas"}),L("Demasiados puentes quemados. El paddock tiene memoria.","Too many bridges burned. The paddock has a long memory.",{pt:"Pontes queimadas demais. O paddock tem memória."}));
-      $("offerList").innerHTML="";
-      setTimeout(endCareer,1500);
+      chooseWorld({sinVolver:true, conRetiro:true,
+        titulo:L("Sin ofertas","No offers",{pt:"Sem ofertas"}),
+        sub:L("Demasiados puentes quemados: el paddock de la F1 tiene memoria. Pero hay otros mundos donde nadie te conoce todavía.","Too many bridges burned: the F1 paddock has a long memory. But there are other worlds where nobody knows you yet.",{pt:"Pontes queimadas demais: o paddock da F1 tem memória. Mas há outros mundos onde ninguém te conhece ainda."})});
       return;
     }
     // 🎬 el cameo de APXGP es de la PELÍCULA de 2025: no puede aparecer antes en las eras retro
@@ -13664,12 +13779,23 @@ function nextOffers(){
       S._alonsoCameoDone=true;
     }
   }
+  // 🌎 cada invierno, estés donde estés, la puerta a TODOS los demás mundos (no se añade a las pantallas de contrato cerrado)
+  if(S.age>=17 && !o.some(x=>x.id==="mundo")) o.push(mundoOption());
   setDecision(title,sub);
   renderRecap();
   renderOffers(o, S.cat==="F1"&&S.age>=31);
 }
 
 function washedOut(){
+  /* 🌎 YA NO ES EL FINAL: si las ofertas de monoplazas se acaban, quedan todos los demás mundos. */
+  if(Object.keys(SERIES).filter(serieOK).length){
+    chooseWorld({sinVolver:true, conRetiro:true,
+      titulo:L("Fin del camino… en los monoplazas","End of the road… in single-seaters",{pt:"Fim do caminho… nos monopostos"}),
+      sub:L("Las ofertas de monoplaza se agotaron antes de llegar a la F1. Pero el automovilismo es más grande que las fórmulas: elige otro mundo o cuelga el casco.",
+            "The single-seater offers dried up before you reached F1. But motorsport is bigger than the formulas: choose another world or hang up your helmet.",
+            {pt:"As ofertas de monoposto acabaram antes de você chegar à F1. Mas o automobilismo é maior do que as fórmulas: escolha outro mundo ou pendure o capacete."})});
+    return;
+  }
   S.retired=true;
   setDecision(L("Fin del camino","End of the road",{pt:"Fim do caminho"}),L("Las ofertas se agotaron antes de llegar a la F1. El automovilismo es cruel.","The offers dried up before you reached F1. Motorsport is cruel.",{pt:"As ofertas acabaram antes de você chegar à F1. O automobilismo é cruel."}));
   $("offerList").innerHTML="";
@@ -23866,6 +23992,261 @@ function rivalPick(){
   const d = chispa || pool[irnd(0,pool.length-1)];
   seen[d.id]=yearNow();
   return d;
+}
+
+</script>
+<!-- PODIOS POR CATEGORIA + CANTERA: ver comentario del bloque -->
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════════
+   🏁 PODIOS POR CATEGORÍA + CANTERA QUE LLEGA A LA F1  (solo la era 2026, de momento)
+   Hasta hoy el panel de la tarjeta enseñaba SIEMPRE el top-3 de la F1, estuvieras donde estuvieras. Ahora, cuando
+   corres en karting, F4, F3, Regional, F2 o en una serie de fuera (IndyCar, WEC, WRC…), enseña el podio de ESA
+   categoría ese año —pilotos y equipos—, y un botón permite ver el de la F1. La clasificación de F1 por años no se
+   toca: cada temporada sigue guardando su `top3d/top3c` y el desplegable «Años anteriores» sale igual.
+
+   Los nombres de los podios de abajo no son relleno: salen de una CANTERA viva (`S.jrPool`). Quien gana el karting
+   aparece luego en F4, de ahí a la F3 o la Regional, a la F2… y quien llega arriba y queda libre un asiento de F1 puede
+   ser el novato que debute (jrStarTake, enganchado en mkRookie). En el panel, los que ya han llegado a la F1 llevan
+   su etiqueta 🏎️. Así ves quién de aquella generación llegó contigo.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+function catSistemaOn(){ return typeof S!=="undefined" && S && S.era==="2026" && !S.challenge && !(typeof TP_MODE!=="undefined" && TP_MODE) && S.cat!=="TP"; }
+const CAT_IDX={KART:0,F4:1,F3:2,FR:2,F2:3};
+const CAT_EDAD=[[13,17],[15,19],[17,21],[18,24]];     // edades típicas por peldaño: karting, F4, F3/Regional, F2
+const CAT_PROB_SUBE=[.92,.82,.72,.6,.5,.4,.3,.25,.2,.15];   // probabilidad de subir según tu puesto en la categoría
+function catLlave(){ return S.cat==="ADV" ? "ADV:"+S.advSeries : S.cat; }
+function catEtiqueta(){ return S.cat==="ADV" ? serName(S.advSeries) : catName(S.cat); }
+
+/* ─── nombres: primero el bote de promesas reales, luego apellidos genéricos como en mkRookie ─── */
+function catNombreNuevo(edad, flagDeseada){
+  const yr=yearNow();
+  const usado=n=>(S.dpool||[]).some(d=>d&&d.name===n)||(S.jrPool||[]).some(p=>p.n===n)||(S.jrOtros||[]).some(p=>p.n===n);
+  const cand=(S.rookies||[]).filter(r=>(!r[2]||yr>=r[2]) && (r[3] ? Math.abs((yr-r[3])-edad)<=1 : true) && !usado(r[0]));
+  if(cand.length && ch(.55)){
+    const r=cand[irnd(0,cand.length-1)]; S.rookies.splice(S.rookies.indexOf(r),1);
+    return {n:r[0], f:r[1], b:r[3]||(yr-edad), tech:r[4]||null};
+  }
+  const ap=S._genApe=S._genApe||{};
+  let g,nom,k=0;
+  do{ g=GEN_NAMES[irnd(0,GEN_NAMES.length-1)];
+      nom=/\.\s/.test(g[0]) ? g[0] : GEN_INITIALS[irnd(0,GEN_INITIALS.length-1)]+". "+g[0];
+  }while(++k<30 && (usado(nom) || ap[g[0]] || (S.dpool||[]).some(d=>d&&d.name&&surname(d.name)===g[0])));
+  ap[g[0]]=true;
+  return {n:nom, f:g[1], b:yr-edad, tech:null};
+}
+function catNueva(idx){
+  const [a,z]=CAT_EDAD[idx]; const edad=irnd(a+1,z-1);
+  const nm=catNombreNuevo(edad);
+  const lv=Math.max(.12,Math.min(1,.5+gauss()*.22+(nm.tech?(nm.tech-84)/45:0)));
+  return {n:nm.n, f:nm.f, b:nm.b, lv:lv, c:idx, y:yearNow()};
+}
+
+/* ─── podio de una categoría de monoplazas / karting ─── */
+function catPodioJunior(row){
+  const idx=CAT_IDX[S.cat]; if(idx==null) return null;
+  const yr=row.year, pos=row.pos;
+  S.jrPool=S.jrPool||[];
+  const [a,z]=CAT_EDAD[idx];
+  // los que ya no tienen edad para SU peldaño se retiran de la cantera
+  S.jrPool=S.jrPool.filter(p=>p.c===4 ? true : (yr-p.b)<=CAT_EDAD[p.c][1]+2);
+  let cont=S.jrPool.filter(p=>p.c===idx && (yr-p.b)<=z+1);
+  while(cont.length<9){ const n=catNueva(idx); S.jrPool.push(n); cont.push(n); }
+  cont.forEach(p=>{ p.s=p.lv+gauss()*.16; });
+  cont.sort((x,y)=>y.s-x.s);
+  // los de abajo suben o se quedan según su puesto (el tuyo se cuenta aparte)
+  cont.forEach((p,i)=>{
+    const rank=i+(pos!=null && pos<=i+1 ? 1 : 0);             // si tú entras por delante, ellos bajan un puesto
+    if(ch(CAT_PROB_SUBE[Math.min(CAT_PROB_SUBE.length-1,rank)])){
+      if(idx===3){ p.c=4; p.rdy=yr+1; }                        // la F2 da acceso a esperar un asiento de F1
+      else { p.c=idx===2 ? 3 : idx+1; }
+      p.y=yr;
+    }
+  });
+  const f1Wait=S.jrPool.filter(p=>p.c===4).sort((x,y)=>y.lv-x.lv);
+  if(f1Wait.length>6) f1Wait.slice(6).forEach(p=>{ S.jrPool.splice(S.jrPool.indexOf(p),1); });
+  // el podio: los tres mejores, dejando sitio al jugador si ha subido
+  const otros=cont.slice(0,3);
+  const d=[]; let k=0;
+  for(let i=0;i<3;i++){
+    if(pos===i+1) d.push({n:"__ME__", me:true, flag:sel.flag});
+    else { const p=otros[k++]; d.push({n:p.n, flag:p.f, star:true}); }
+  }
+  // el equipo con el que corría cada uno
+  const pool=idx===0?KART_TEAMS : idx===1?F4_TEAMS : idx===2?(S.cat==="FR"?FRECA_TEAMS:F3_TEAMS) : F2_TEAMS;
+  const eq=pool.map(t=>({n:t.name, s:(S.jrPerf[t.name]??t.perf)+gauss()*3})).sort((x,y)=>y.s-x.s).map(x=>x.n);
+  const mio=S.team&&S.team.name;
+  // equipos del podio: tu equipo entra si quedaste en el podio, y sale si no
+  const libres=eq.filter(n=>n!==mio);
+  const tops=libres.slice(0,3);
+  if(pos!=null && pos<=3 && mio){ tops.splice(Math.min(2,pos-1),0,mio); tops.length=3; }
+  // el equipo con el que corría cada uno: distintos entre sí cuando se puede
+  let li=0; d.forEach(x=>{ x.team = x.me ? (mio||"") : (libres[li++]||""); });
+  return {d, c:tops};
+}
+/* el mundo de abajo sigue girando aunque no estés mirando: los que no son de TU categoría también suben de peldaño,
+   así los de la F3 llegan a la F2 y a la F1 aunque tú te saltes la F2. Lo llama catPodioAfter cada temporada. */
+function catMundoTick(skipIdx){
+  const yr=yearNow(); S.jrPool=S.jrPool||[];
+  S.jrPool.forEach(p=>{
+    if(p.c===4 || p.c===skipIdx) return;
+    const edad=yr-p.b;
+    if(edad<CAT_EDAD[p.c][0]+1) return;
+    if(ch(.15+.45*p.lv)){ if(p.c===3){ p.c=4; p.rdy=yr+1; } else p.c = p.c===2 ? 3 : p.c+1; p.y=yr; }
+  });
+  S.jrPool=S.jrPool.filter(p=>p.c===4 || (yr-p.b)<=CAT_EDAD[p.c][1]+2);
+  // los que esperan asiento de F1 y llevan demasiado tiempo en la cola, se pierden por el camino
+  S.jrPool=S.jrPool.filter(p=>p.c!==4 || (yr-(p.rdy||yr))<=4);
+  // la cantera se repone sola: sin esto, una carrera larga en la F1 la vaciaría
+  let n=0; while(S.jrPool.filter(p=>p.c<=3).length<10 && n++<6) S.jrPool.push(catNueva(irnd(0,3)));
+}
+
+/* ─── podio de una serie de fuera (IndyCar, WEC, WRC…) ─── */
+const ADV_ESTRELLAS={
+  indy:[["A. Palou","🇪🇸"],["P. O'Ward","🇲🇽"],["C. Herta","🇺🇸"],["J. Newgarden","🇺🇸"],["S. Dixon","🇳🇿"],["A. Rossi","🇺🇸"],["C. Lundgaard","🇩🇰"],["K. Kirkwood","🇺🇸"],["W. Power","🇦🇺"]],
+  lemans:[["R. Kubica","🇵🇱"],["S. Buemi","🇨🇭"],["B. Hartley","🇳🇿"],["R. Hirakawa","🇯🇵"],["K. Kobayashi","🇯🇵"],["K. Estre","🇫🇷"],["L. Vanthoor","🇧🇪"],["A. Lynn","🇬🇧"],["A. Giovinazzi","🇮🇹"],["A. Fuoco","🇮🇹"]],
+  wrc:[["S. Ogier","🇫🇷"],["T. Neuville","🇧🇪"],["E. Evans","🇬🇧"],["O. Tänak","🇪🇪"],["K. Rovanperä","🇫🇮"],["T. Katsuta","🇯🇵"],["A. Fourmaux","🇫🇷"],["O. Solberg","🇸🇪"],["E. Lappi","🇫🇮"]],
+  nascar:[["K. Larson","🇺🇸"],["D. Hamlin","🇺🇸"],["C. Elliott","🇺🇸"],["R. Blaney","🇺🇸"],["W. Byron","🇺🇸"],["J. Logano","🇺🇸"],["T. Reddick","🇺🇸"],["C. Bell","🇺🇸"]],
+  dtm:[["M. Bortolotti","🇮🇹"],["T. Preining","🇦🇹"],["S. van der Linde","🇿🇦"],["M. Engel","🇩🇪"],["L. Auer","🇦🇹"],["J. Gounon","🇫🇷"],["R. Feller","🇨🇭"],["M. Wittmann","🇩🇪"]],
+  supercars:[["S. van Gisbergen","🇳🇿"],["W. Davison","🇦🇺"],["C. Mostert","🇦🇺"],["C. Waters","🇦🇺"],["B. Kostecki","🇦🇺"],["A. De Pasquale","🇦🇺"],["W. Brown","🇦🇺"],["M. Payne","🇦🇺"]],
+  dakar:[["N. Al-Attiyah","🇶🇦"],["S. Loeb","🇫🇷"],["S. Peterhansel","🇫🇷"],["M. Prokop","🇨🇿"],["Y. Al Rajhi","🇸🇦"],["M. Serradori","🇫🇷"],["G. de Villiers","🇿🇦"]],
+  formulae:[["O. Rowland","🇬🇧"],["P. Wehrlein","🇩🇪"],["J. Dennis","🇬🇧"],["M. Evans","🇳🇿"],["N. Cassidy","🇳🇿"],["J-É. Vergne","🇫🇷"],["E. Mortara","🇨🇭"],["L. di Grassi","🇧🇷"]],
+  brasil:[["D. Serra","🇧🇷"],["F. Fraga","🇧🇷"],["G. Casagrande","🇧🇷"],["R. Zonta","🇧🇷"],["R. Barrichello","🇧🇷"],["E. Baptista","🇧🇷"]],
+  tc:[["A. Canapino","🇦🇷"],["M. Werner","🇦🇷"],["M. Rossi","🇦🇷"],["C. Ledesma","🇦🇷"],["G. Ortelli","🇦🇷"],["J. Castellano","🇦🇷"]],
+  superformula:[["A. Iwasa","🇯🇵"],["R. Miyata","🇯🇵"],["T. Nojiri","🇯🇵"],["S. Tsuboi","🇯🇵"],["N. Yamamoto","🇯🇵"],["K. Sato","🇯🇵"]]
+};
+const ADV_EQUIPOS={
+  indy:["Team Penske","Chip Ganassi Racing","Andretti Global","Arrow McLaren","Meyer Shank Racing"],
+  lemans:["Toyota Gazoo Racing","Ferrari AF Corse","Porsche Penske Motorsport","Cadillac Hertz Team Jota","BMW M Team WRT","Alpine Endurance Team"],
+  nascar:["Hendrick Motorsports","Joe Gibbs Racing","Team Penske","23XI Racing","Trackhouse Racing"],
+  wrc:["Toyota Gazoo Racing WRT","Hyundai Shell Mobis WRT","M-Sport Ford WRT"],
+  formulae:["Porsche Formula E Team","Jaguar TCS Racing","Nissan Formula E Team","DS Penske","Mahindra Racing","Envision Racing"],
+  dakar:["Toyota Gazoo Racing","Dacia Sandriders","Overdrive Toyota"],
+  dtm:["Team ABT Sportsline","Rowe Racing","Emil Frey Racing","Mercedes-AMG Team Landgraf"],
+  superformula:["Team Mugen","Team Impul","Kondo Racing","Dandelion Racing"]
+};
+function catPodioAdv(row){
+  const k=S.advSeries, ar=row.advResult; if(!k||!ar) return null;
+  S.advPool=S.advPool||{};
+  let pool=S.advPool[k];
+  if(!pool){
+    pool=S.advPool[k]=(ADV_ESTRELLAS[k]||[]).map(x=>({n:x[0],f:x[1],lv:Math.max(.25,Math.min(1,.62+gauss()*.18))}));
+    while(pool.length<8){ const nm=catNombreNuevo(irnd(24,38)); pool.push({n:nm.n,f:nm.f,lv:Math.max(.2,Math.min(.95,.5+gauss()*.2))}); }
+  }
+  // uno de los tuyos lleva tu bandera de vez en cuando: tu país tira
+  pool.forEach(p=>{ p.s=p.lv+gauss()*.2; });
+  pool.sort((x,y)=>y.s-x.s);
+  const pos=ar.champPos;
+  const otros=pool.filter(p=>p.n!==sel.name).slice(0,3);
+  const d=[]; let q=0;
+  for(let i=0;i<3;i++){ if(pos===i+1) d.push({n:"__ME__", me:true, flag:sel.flag}); else { const p=otros[q++]; d.push({n:p.n, flag:p.f}); } }
+  const eqs=ADV_EQUIPOS[k]||null;
+  let c=[];
+  if(eqs){
+    const marca=S.advMarca;
+    c=eqs.slice().sort(()=>Math.random()-.5).slice(0,3);
+    if(pos<=3 && marca){ const m=eqs.find(e=>e.toLowerCase().indexOf(String(marca).toLowerCase().split(" ")[0])>=0); if(m && !c.includes(m)) c[Math.min(2,pos-1)]=m; }
+    d.forEach((x,i)=>{ x.team=c[i]||""; });
+  }
+  return {d, c};
+}
+
+/* ─── el hueco que dejan los dos: se llama desde simSeason tras simular el año ─── */
+function catPodioAfter(row){
+  if(!catSistemaOn() || !row) return;
+  const idx = CAT_IDX[S.cat];
+  if(S.cat==="ADV" || idx!=null){
+    const res = S.cat==="ADV" ? catPodioAdv(row) : catPodioJunior(row);
+    if(res){ const T={cat:catLlave(), label:catEtiqueta(), year:row.year, d:res.d, c:res.c}; row.catTop3=T; S.catTop3=T; }
+  }
+  catMundoTick(idx==null ? -1 : idx);       // también en F1/probador/aventura: la cantera sigue su curso
+}
+
+/* ─── de la cantera a la F1: ¿cuándo entra uno de los que viste en los podios? ─── */
+function jrStarTake(noCross, forTeam){
+  if(!catSistemaOn() || !S.jrPool) return null;
+  const yr=yearNow();
+  const ok=S.jrPool.filter(p=>p.c===4 && (p.rdy||0)<=yr && (yr-p.b)>=18 && (!noCross || (yr-p.b)<=EDAD_CANTERA)
+                           && !(S.dpool||[]).some(d=>d&&d.name===p.n));
+  if(!ok.length || !ch(.55)) return null;
+  ok.forEach(p=>{ p._r=p.lv+gauss()*.12; }); ok.sort((x,y)=>y._r-x._r);   // (el comparador aleatorio de antes no era consistente)
+  const p=ok[0]; S.jrPool.splice(S.jrPool.indexOf(p),1);
+  const age=Math.max(18,Math.min(27,yr-p.b));
+  /* 🌟 los mejores de la cantera pueden ser el «fenómeno generacional» que mkRookie sortea un 11 % de las veces: sin esto,
+     alimentar la F1 con la cantera de los podios vaciaría el techo de la parrilla a largo plazo */
+  const fenomeno = p.lv>=.85 && age<=22 && ch(.5);
+  const skill = fenomeno ? Math.round(rnd(84,88)) : Math.round(Math.max(72,Math.min(83,71+p.lv*11+rnd(-1,2))));
+  const ceil  = fenomeno ? irnd(95,97) : Math.round(Math.max(skill+2,Math.min(96,80+p.lv*13+gauss()*2)));
+  const d={name:p.n, age, skill, ceil, titles:0, flag:p.f, jrStar:true, gen:fenomeno};
+  homeBuffOne(d); S.dpool.push(d);
+  (S.jrReached=S.jrReached||{})[p.n]=yr;
+  return d;
+}
+function catLlegoF1(n){
+  if(!n || n==="__ME__") return null;
+  if(S.jrReached && S.jrReached[n]) return S.jrReached[n];
+  try{ for(const sl of Object.values(S.seats||{})){ if((sl||[]).some(x=>x&&x!=="PLAYER"&&x.name===n)) return yearNow(); } }catch(e){}
+  return null;
+}
+
+/* ─── el panel ─── */
+function catPanelOn(){
+  return catSistemaOn() && S.cat!=="F1" && S.cat!=="TEST" && !!S.catTop3 && S.catTop3.cat===catLlave() && S.vistaStd!=="f1";
+}
+function catRestauraTitulos(){
+  const hs=document.querySelectorAll("#f1state h5");
+  hs.forEach(h=>{ const sp=h.querySelector("span"); if(sp && sp.dataset.orig){ sp.textContent=sp.dataset.orig; delete sp.dataset.orig; } });
+}
+function catBotonVista(texto, onClick){
+  const card=document.getElementById("f1state"); if(!card) return;
+  let b=document.getElementById("fsVista");
+  if(!texto){ if(b) b.style.display="none"; return; }
+  if(!b){ b=document.createElement("button"); b.id="fsVista"; b.type="button";
+    b.style.cssText="position:absolute;top:8px;right:10px;z-index:2;font:700 11px/1 system-ui,sans-serif;padding:5px 9px;border-radius:999px;border:1px solid var(--line,#ccc);background:var(--panel,#fff);color:var(--text,#222);cursor:pointer;opacity:.85";
+    card.style.position="relative"; card.appendChild(b); }
+  b.style.display=""; b.textContent=texto; b.onclick=onClick;
+}
+/* se llama al empezar renderF1State: devuelve true si ya ha pintado el panel de categoría */
+function catPanelHook(){
+  if(!catSistemaOn()) { catBotonVista(null); catRestauraTitulos(); return false; }
+  const fuera = ["KART","F4","F3","FR","F2","ADV"].includes(S.cat) && !!S.catTop3 && S.catTop3.cat===catLlave();
+  if(!fuera){ catBotonVista(null); catRestauraTitulos(); return false; }
+  if(S.vistaStd==="f1"){
+    catRestauraTitulos();
+    catBotonVista(L("📍 Ver mi categoría","📍 My category"), ()=>{ S.vistaStd="cat"; renderF1State(); });
+    return false;      // el resto de renderF1State pinta la F1 como siempre
+  }
+  renderCatState();
+  catBotonVista(L("🏎️ Ver la F1","🏎️ See F1"), ()=>{ S.vistaStd="f1"; renderF1State(); });
+  return true;
+}
+function catEtiquetaF1(n){
+  const y=catLlegoF1(n); if(!y) return "";
+  return ` <span style="font-size:10px;font-weight:800;padding:1px 5px;border-radius:6px;background:rgba(225,6,0,.12);color:#c10600" title="${L("Ya ha llegado a la F1","Has already reached F1")}">🏎️ F1</span>`;
+}
+function renderCatState(){
+  const T=S.catTop3; if(!T) return;
+  $("f1state").style.display="block";
+  const _fss=$("fsSeason"); if(_fss) _fss.textContent=T.label+" · "+L("Temporada","Season",{pt:"Temporada"})+" "+T.year;
+  const hs=document.querySelectorAll("#f1state h5");
+  const ponTit=(h,t)=>{ const sp=h&&h.querySelector("span"); if(!sp) return; if(!sp.dataset.orig) sp.dataset.orig=sp.textContent; sp.textContent=t; };
+  ponTit(hs[0], L("👑 Podio de pilotos","👑 Drivers' podium"));
+  ponTit(hs[1], T.c && T.c.length ? L("🏭 Equipos","🏭 Teams") : "");
+  const medal=["🥇","🥈","🥉"], dly=i=>`style="animation-delay:${i*70}ms"`;
+  $("fsDrivers").innerHTML=T.d.map((x,i)=>`<div class="srow${x.me?" me":""}" ${dly(i)}><span class="nm">${medal[i]} ${flg(x.me?sel.flag:x.flag)} ${x.me?L("TÚ","YOU",{pt:"TU"}):surname(x.n)}${catEtiquetaF1(x.n)}</span><span class="rt2">${x.team?teamBadge(x.team):""}</span></div>`).join("");
+  $("fsTeams").innerHTML=(T.c&&T.c.length)
+    ? T.c.map((x,i)=>`<div class="srow${S.team&&x===S.team.name?" me":""}" ${dly(i)}><span class="nm">${medal[i]} ${teamBadge(x)} ${x}</span></div>`).join("")
+    : `<div class="srow"><span class="nm" style="color:var(--muted)">${L("Sin clasificación de equipos","No team standings")}</span></div>`;
+  // años anteriores de CUALQUIER categoría en la que hayas corrido
+  try{
+    let pv=document.getElementById("fsPrev");
+    if(!pv){ pv=document.createElement("div"); pv.id="fsPrev"; pv.className="fs-prev"; $("f1state").appendChild(pv); }
+    const filas=(S.seasons||[]).slice().reverse().filter(r=>r && r.catTop3 && r.year!==T.year);
+    pv.style.display=filas.length?"":"none";
+    pv.innerHTML=filas.length ? `<h5>${L("📜 Años anteriores","📜 Previous seasons",{pt:"📜 Anos anteriores"})}</h5>`+filas.map(r=>{
+      const t=r.catTop3;
+      const nom=t.d.map((x,i)=>`${medal[i]} ${x.me?`<b>${L("TÚ","YOU",{pt:"TU"})}</b>`:surname(x.n)+catEtiquetaF1(x.n)}`).join(" · ");
+      return `<div class="fp"><b>${t.label} · ${t.year}</b><br>${nom}</div>`;
+    }).join("") : "";
+  }catch(e){}
 }
 
 </script>
