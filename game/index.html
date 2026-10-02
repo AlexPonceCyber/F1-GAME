@@ -10509,6 +10509,9 @@ function pickDilemma(){
     const d=DILEMAS.find(x=>x.id==="gigante");
     if(d && d.cond() && ch(.6)) return d;
   }
+  /* 🕰️⚔️ SUCESOS DE ÉPOCA y RIVALIDADES (bloque propio, ver `eraEventPick`): ventanas de uno o dos años y un
+     rival que no puede esperar a que el sorteo general se acuerde de él. Tampoco cuentan para el tope de abajo. */
+  try{ const _ev=(typeof eraEventPick==="function") ? eraEventPick() : null; if(_ev) return _ev; }catch(e){}
   // tope de dilemas por carrera (subido de 5 a 6 el 7-ago-2026, decisión de Carlos). Los prioritarios
   // —arco del reglamento, gomas, toque, pandemia, película…— siguen saltándose esta cuenta a propósito:
   // tienen ventanas de un año y o salen entonces o no salen nunca.
@@ -10792,7 +10795,7 @@ function renderDilemma(dl, repintar){
      El año siempre es un número verdadero, así que los cientos de `if(S.usedDilemmas[id])` que hay por
      todas partes siguen valiendo igual — y una partida guardada antes de hoy trae `true`, que también
      es verdadero. Por eso quien lea el año debe comprobar `typeof === "number"` antes de restar. */
-  if(!repintar){ S.usedDilemmas[dl.id]=yearNow()||true; S.dilemmaCount++; S.lastDilemmaAge=S.age; S._dilVars={}; }
+  if(!repintar){ S.usedDilemmas[dl.id]=yearNow()||true; if(!dl.nocount) S.dilemmaCount++; S.lastDilemmaAge=S.age; S._dilVars={}; }   // `nocount`: sucesos de época y rivalidades no gastan el tope
   S._curDilemma=dl;   // 🌐 para poder repintarlo si cambias de idioma con el dilema en pantalla
   // 🏆 los dilemas de pelea por el título se deciden ANTES de simar el año: son un PRONÓSTICO (vienes de
   // podio y tienes cochazo). Lo apuntamos para que, si luego el año se tuerce, la temporada lo explique.
@@ -12540,6 +12543,7 @@ function simF1(row,st){
   }
   const me={team:myTeam, name:"TÚ", dref:null, skill:S.ovr, pts:0, isP:true, form:seasonForm()};
   grid.push(me);
+  try{ if(typeof rivalGridHook==="function") rivalGridHook(grid, me); }catch(e){}   // ⚔️ mientras dura el duelo, los dos van un pelín más fuertes
   const roleBonus = S.role==="1"? .8 : -.8;
   const affinity = carAffinity(myTeam); // encaje coche↔estilo (varía por partida)
   // 🔧 el coche se desarrolla en torno al FUTURO del equipo. GRADUAL: al envejecer y dejar de ser el proyecto,
@@ -12688,6 +12692,7 @@ function simF1(row,st){
     d:standings.slice(0,3).map((d,i)=>({n:d.isP?"TÚ":_dis3(i),team:d.team,flag:d.dref?d.dref.flag:undefined,me:d.isP,mv:mvD(d.isP?"__ME__":d.name,i+1)})),
     c:row.top3c, cmv:constrRank.slice(0,3).map((e,i)=>mvC(e[0],i+1)),
     myPos:pos, myConstr:constrPos, myPosMv:mvD("__ME__",pos), myConstrMv:mvC(myTeam,constrPos)};
+  try{ if(typeof rivalAfterSeason==="function") rivalAfterSeason(row, standings, me, pos); }catch(e){}   // ⚔️ ¿nace, sube o se apaga una rivalidad?
   if(row.apxWin) row.events.push(L("🎬 Victoria con APXGP: la remontada digna de Hollywood.","🎬 A win with APXGP: a comeback worthy of Hollywood.",{pt:"🎬 Vitória com a APXGP: a recuperação digna de Hollywood."}));
   if(pos===1){ S.lastChampName=null; S.titles.f1++;
     /* 📊 SOLO EL PRIMER TÍTULO. Medido en el panel el 4-sep: 594 personas y 3.600 eventos, unos seis
@@ -14424,6 +14429,7 @@ function endCareer(){
   else {legacy=L("PROMESA DEL AUTOMOVILISMO","MOTORSPORT PROSPECT",{pt:"PROMESSA DO AUTOMOBILISMO"});verdict=L("La F1 quedó lejos, pero el asfalto fue tu casa. No todos los sueños terminan en Mónaco, y aún así valen la pena.","F1 stayed out of reach, but the track was your home. Not every dream ends in Monaco, and they're worth it all the same.",{pt:"A F1 ficou longe, mas o asfalto foi a sua casa. Nem todos os sonhos terminam em Mônaco, e ainda assim valem a pena."});}
   // 🛌 el único legado que deja el gigante dormido: lo encontraste dormido y volvió a ganar contigo
   if(S.gigResucitado) verdict+=L(` Y resucitaste a ${S.gigResucitado}: lo encontraste dormido y lo devolviste a lo más alto. 🛌`,` And you revived ${S.gigResucitado}: you found them sleeping and took them back to the top. 🛌`,{pt:` E você ressuscitou a ${S.gigResucitado}: encontrou-a adormecida e a devolveu ao topo. 🛌`});
+  try{ if(typeof rivalVeredicto==="function") verdict+=rivalVeredicto(); }catch(e){}   // ⚔️ tu gran rival, si lo hubo
   if(S.apxShown && S.seasons.some(s=>s.team.name==="APXGP")) verdict+=L(" Y sí: lo de APXGP fue tan de película como suena. 🎬"," And yes: the APXGP thing was as cinematic as it sounds. 🎬",{pt:" E sim: o lance da APXGP foi tão de cinema quanto parece. 🎬"});
   /* 📅 RETO · LA COMPARACIÓN CON EL PILOTO REAL, RETIRADA (decisión de Carlos, 14-ago-2026).
      Enseñaba una tabla «LO HAS HECHO MEJOR QUE ÉL» con mundiales/victorias/poles/podios frente a los
@@ -23090,6 +23096,779 @@ try{ pendRetry(); }catch(e){}  // 📮 ¿quedó alguna carrera sin enviar la úl
 <!-- Vercel Web Analytics (sitio estático): cuenta visitas y páginas vistas, sin cookies -->
 <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};</script>
 <script defer src="/_vercel/insights/script.js"></script>
+<!-- SUCESOS DE EPOCA + RIVALIDADES: ver comentario del bloque -->
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════════
+   🕰️ SUCESOS DE ÉPOCA  +  ⚔️ RIVALIDADES
+   Dos cosas nuevas, en un bloque aparte para no mezclarlo con el resto del catálogo:
+
+   1) SUCESOS DE ÉPOCA (stage:"epoca"). Dilemas que recrean lo que de verdad pasó en la F1 de cada año
+      (la guerra FISA-FOCA, el turbo, el efecto suelo, la electrónica, el repostaje, Indianápolis 2005,
+      el DRS, el halo, el tope presupuestario…). Funcionan por AÑO, no por era: da igual si empezaste en
+      1980 o en 2010, el suceso sale cuando tu calendario llega a esa ventana y estás en la F1. Tienen
+      prioridad propia (como la pandemia) porque su ventana dura uno o dos años y, sin ella, el sorteo
+      general se los comería. No cuentan para el tope de dilemas por carrera (`nocount`).
+      Nada de poner palabras en boca de pilotos reales: el suceso lo vives TÚ y lo que pasa es historia
+      del deporte contada en tercera persona.
+
+   2) RIVALIDADES (stage:"rival"). Al cerrar cada temporada de F1 el juego mira quién ha estado pegado a
+      ti en la clasificación (o en tu garaje) y, si la cosa tiene chispa, nace una RIVALIDAD con nombre
+      propio: marcador de años por delante, nivel de tensión 0-3 y una serie de dilemas que se acuerdan
+      de ella (prensa, pista, garaje, juegos mentales, tregua, duelo decisivo). Sube con la tensión y
+      se enfría si dejáis de cruzaros. A nivel 3 el rival entra en `S.feuds` (el mercado ya sabe qué hacer
+      con un enemigo). Se puede sellar con un apretón de manos. Al final de la carrera, el veredicto
+      recuerda a tu gran rival.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+/* ───────────────────────────── 1 · SUCESOS DE ÉPOCA ───────────────────────────── */
+function EPO(id, y, prio, extra, t, d, opts){
+  DILEMAS.push({ id:id, stage:"epoca", nocount:true, prio:prio*.8, y:y,   // *.8: con las ventanas tan juntas, sin frenar saldría casi cada año
+    cond:()=> S.cat==="F1" && !!S.team && yearNow()>=y[0] && yearNow()<=y[1] && (!extra || !!extra()),
+    t:t, d:d, opts:opts });
+}
+/* hash estable de un nombre: sirve para que «tu equipo calza X» sea siempre la misma respuesta en una partida */
+function epoHash(s){ let h=0; for(let i=0;i<String(s).length;i++) h=(h*31+String(s).charCodeAt(i))>>>0; return h; }
+
+/* ─── LOS 80 ─────────────────────────────────────────────────────────────────── */
+/* 🕰️ EN EL MODO 1980 LLEGAS A LA F1 HACIA 1985-88 (karting a los 14-16, escalera junior…): los sucesos de los primeros años
+   de la década tienen la ventana ESTIRADA para que el jugador de esa era también los viva (el boicot y la huelga son de
+   1982, pero la guerra FISA-FOCA coleó años; el turbo y sus trucos duraron hasta 1988). */
+EPO("ep_fisafoca",[1980,1983],.75,null,
+ ()=>L("La guerra FISA–FOCA","The FISA–FOCA war"),
+ ()=>L("Los equipos británicos y las fábricas llevan meses a la greña por el dinero, el reglamento y quién manda en la F1. Se habla de carreras fuera del calendario, de un Gran Premio boicoteado y de un campeonato partido en dos. Tu equipo quiere saber de qué lado estás.",
+       "The British teams and the manufacturers have been at each other's throats for months over money, the rules and who runs F1. People talk of races outside the calendar, a boycotted Grand Prix and a championship split in two. Your team wants to know whose side you're on."),
+ [{l:()=>L("Apoyar el boicot","Back the boycott"),r:()=>roll(
+    [4,()=>(CAR(.5),L("Tu equipo cierra filas contigo y la lealtad se nota en el box. +0,5 coche","Your team closes ranks behind you and the loyalty shows in the garage. +0.5 car"))],
+    [3,()=>(S.missRaces=Math.max(S.missRaces||0,1),VAL(1.06),L("Te quedas sin una carrera por el plante, pero la afición respeta tu postura. −1 GP, +fama","You miss a race because of the walkout, but the fans respect your stance. −1 GP, +fame"))],
+    [3,()=>(VAL(.92),L("La prensa te acusa de dejar tirada a la afición por una pelea de despachos. −fama","The press says you let the fans down over a boardroom squabble. −fame"))])},
+  {l:()=>L("Correr de todos modos","Race anyway"),r:()=>roll(
+    [3,()=>(dilAcreditar(3),VAL(.95),L("Con media parrilla ausente subes al podio… y algunos te llaman esquirol. Podio, −fama leve","With half the grid missing you step onto the podium… and some call you a scab. Podium, slight −fame"))],
+    [4,()=>L("Corres, puntúas lo normal y la polémica pasa de largo. Sin cambios.","You race, score as usual and the row passes you by. No change.")],
+    [3,()=>(CAR(-.5),L("En tu equipo no entienden que corrieras sin avisar. −0,5 coche","Your team can't believe you raced without telling them. −0.5 car"))])}]);
+
+EPO("ep_huelga",[1982,1983],.7,null,
+ ()=>L("La huelga de pilotos","The drivers' strike"),
+ ()=>L("Antes del primer Gran Premio del año, casi todos los pilotos se atrincheran en un hotel: la federación ha metido en la superlicencia una cláusula que os ata de pies y manos. O firmáis, o no hay carrera.",
+       "Before the first Grand Prix of the year almost all the drivers barricade themselves in a hotel: the governing body has slipped a clause into the super-licence that ties your hands. Either you sign or there's no race."),
+ [{l:()=>L("Quedarte con tus compañeros","Stay with the other drivers"),r:()=>roll(
+    [5,()=>(VAL(1.12),L("Os plantáis todos, la federación cede y el vestuario te reconoce como uno de los suyos. +fama","You all dig in, the governing body backs down and the paddock sees you as one of their own. +fame"))],
+    [3,()=>(CAR(-.5),L("Tu jefe de equipo te pide que firmes ya y el mal rollo llega al garaje. −0,5 coche","Your team boss wants you to sign now and the bad feeling reaches the garage. −0.5 car"))],
+    [2,()=>L("Pasáis la noche discutiendo y todo se arregla por la mañana. Sin cambios.","You spend the night arguing and it's all sorted by morning. No change.")])},
+  {l:()=>L("Firmar y salir a pista","Sign and go racing"),r:()=>roll(
+    [4,()=>(CAR(.5),L("Tu equipo te lo agradece: la pretemporada no se pierde. +0,5 coche","Your team is grateful: the pre-season isn't wasted. +0.5 car"))],
+    [4,()=>(VAL(.88),L("En el paddock tardan en volver a hablarte. −fama","It takes a while for the paddock to start talking to you again. −fame"))],
+    [2,()=>L("Firmas junto a la mitad de la parrilla y todo queda en una anécdota. Sin cambios.","You sign alongside half the grid and it all becomes an anecdote. No change.")])}]);
+
+EPO("ep_carbono",[1981,1985],.6,null,
+ ()=>L("El chasis de fibra de carbono","The carbon-fibre chassis"),
+ ()=>L("Tu equipo prepara un monocasco de fibra de carbono, un material sacado de la industria aeroespacial: más ligero, mucho más rígido… y nadie sabe qué pasa en un golpe fuerte. Los ingenieros te piden que seas el conejillo de indias.",
+       "Your team is building a carbon-fibre monocoque, a material straight out of the aerospace industry: lighter, much stiffer… and nobody knows what happens in a big crash. The engineers want you to be the guinea pig."),
+ [{l:()=>L("Confiar y estrenarlo","Trust it and debut it"),r:()=>roll(
+    [4,()=>(CAR(1.5),L("El coche es un cohete comparado con el de aluminio. +1,5 coche","The car is a rocket next to the aluminium one. +1.5 car"))],
+    [3,()=>(CAR(.5),VAL(1.08),L("Sobrevives a un golpe que habría sido tremendo en otro chasis y la historia corre por el paddock. +0,5 coche, +fama","You walk away from a hit that would have been terrible in another chassis and the story spreads round the paddock. +0.5 car, +fame"))],
+    [3,()=>(OVR(-1),CAR(.5),L("Los primeros kilómetros son un calvario de vibraciones. −1 OVR, +0,5 coche","The first kilometres are an ordeal of vibration. −1 OVR, +0.5 car"))])},
+  {l:()=>L("Esperar a que lo prueben otros","Wait for others to try it first"),r:()=>roll(
+    [5,()=>L("Nadie se mata y el cambio llega más tarde. Sin cambios.","Nobody gets hurt and the switch comes later. No change.")],
+    [3,()=>(CAR(-.5),L("Los rivales ya lo llevan y notas la diferencia. −0,5 coche","Your rivals already run it and you feel the difference. −0.5 car"))],
+    [2,()=>(VAL(.95),L("Te llaman prudente de más. −fama leve","They call you over-cautious. slight −fame"))])}]);
+
+EPO("ep_turbo",[1981,1988],.6,null,
+ ()=>L("El turbo llama a la puerta","The turbo knocks on the door"),
+ ()=>L("Los motores turbo ya son velocísimos… y frágiles como el cristal. Un fabricante propone a tu equipo montar su turbo a mitad de año: más de 800 CV, retraso al acelerar y una fiabilidad todavía por demostrar.",
+       "Turbo engines are already blisteringly fast… and as fragile as glass. A manufacturer offers your team its turbo mid-season: over 800 hp, throttle lag and reliability still to be proved."),
+ [{l:()=>L("Apostar por el turbo","Gamble on the turbo"),r:()=>roll(
+    [4,()=>(CAR(2),L("Es una bestia: las rectas ya no son un problema. +2 coche","It's a beast: the straights are no longer a problem. +2 car"))],
+    [3,()=>(CAR(-1),L("Revienta cada dos carreras y los mecánicos no duermen. −1 coche","It blows every other race and the mechanics never sleep. −1 car"))],
+    [3,()=>(CAR(.5),VAL(1.06),L("Tiene días buenos y malos, pero los buenos salen en la tele. +0,5 coche, +fama","It has good days and bad days, but the good ones make the news. +0.5 car, +fame"))])},
+  {l:()=>L("Seguir con el atmosférico","Stay with the naturally aspirated engine"),r:()=>roll(
+    [4,()=>L("Fiable, ligero y fácil de conducir. Sin cambios.","Reliable, light and easy to drive. No change.")],
+    [3,()=>(CAR(-.5),L("El turbo te pasa por encima en las rectas. −0,5 coche","The turbos run you over on the straights. −0.5 car"))],
+    [3,()=>(OVR(1),L("Domar un coche de tacto puro te hace mejor piloto. +1 OVR","Taming a pure-feel car makes you a better driver. +1 OVR"))])}]);
+
+EPO("ep_suelo",[1983,1984],.7,null,
+ ()=>L("Adiós al efecto suelo","Goodbye, ground effect"),
+ ()=>L("La federación prohíbe los túneles aerodinámicos: fondo plano y muchísimo menos agarre. Los coches se vuelven nerviosos y toca reaprender a pilotar sin esa «aspiradora» pegándote al asfalto.",
+       "The governing body bans the aerodynamic tunnels: flat floors and far less grip. The cars turn twitchy and you have to relearn how to drive without that «vacuum cleaner» gluing you to the tarmac."),
+ [{l:()=>L("Reaprender a pilotar","Relearn how to drive"),r:()=>roll(
+    [5,()=>(OVR(1),L("Te adaptas antes que nadie. +1 OVR","You adapt before anyone else. +1 OVR"))],
+    [3,()=>L("Un invierno de trabajo y vuelves a sentirte cómodo. Sin cambios.","A winter of work and you feel at home again. No change.")],
+    [2,()=>(OVR(-1),L("Pierdes la confianza en las curvas rápidas. −1 OVR","You lose confidence in fast corners. −1 OVR"))])},
+  {l:()=>L("Pedir un coche a tu medida","Ask for a car built around you"),r:()=>roll(
+    [4,()=>(CAR(1),L("Tu ingeniero te escucha y el coche nace como lo querías. +1 coche","Your engineer listens and the car is born the way you wanted. +1 car"))],
+    [3,()=>L("Te dicen que sí y luego hacen lo que querían. Sin cambios.","They say yes and then do what they wanted anyway. No change.")],
+    [3,()=>(CAR(-.5),VAL(.95),L("Pides demasiado y el equipo se lo toma a mal. −0,5 coche, −fama leve","You ask for too much and the team takes it badly. −0.5 car, slight −fame"))])}]);
+
+EPO("ep_lastre",[1984,1988],.55,null,
+ ()=>L("El truco del peso","The weight trick"),
+ ()=>L("En el paddock se murmura que algún equipo corre con el coche más ligero de lo permitido y lo rellena después con lastre… o con un líquido que se evapora tras la báscula. Tu ingeniero te propone «hacer lo mismo» y no mirar.",
+       "Word in the paddock is that some team runs underweight and tops it up afterwards with ballast… or with a liquid that evaporates after the scales. Your engineer suggests «doing the same» and not looking."),
+ [{l:()=>L("Hacer la vista gorda","Look the other way"),r:()=>roll(
+    [4,()=>(CAR(1.5),L("Ganáis décimas sin que nadie diga nada. +1,5 coche","You gain tenths and nobody says a word. +1.5 car"))],
+    [3,()=>(CAR(.5),L("Funciona a medias y vivís con el miedo a una inspección. +0,5 coche","It half works and you live in fear of an inspection. +0.5 car"))],
+    [3,()=>(VAL(.78),CAR(-1),L("Os pillan: multa, portadas y un invierno de reproches. −fama, −1 coche","You get caught: a fine, headlines and a winter of reproach. −fame, −1 car"))])},
+  {l:()=>L("Denunciarlo","Report it"),r:()=>roll(
+    [5,()=>(VAL(1.12),L("Tu honradez es noticia. +fama","Your honesty makes the news. +fame"))],
+    [3,()=>L("Se archiva con un suspiro. Sin cambios.","It's filed away with a sigh. No change.")],
+    [2,()=>(CAR(-.5),L("En el equipo hay quien te lo reprocha. −0,5 coche","Some in the team hold it against you. −0.5 car"))])}]);
+
+EPO("ep_bomba",[1985,1988],.6,null,
+ ()=>L("El motor de clasificación","The qualifying engine"),
+ ()=>L("Para clasificar se monta un motor que da más de 1.000 CV… durante unas pocas vueltas. Es pole casi segura y una bomba de relojería: cualquier fallo a 300 km/h te cae encima.",
+       "For qualifying they fit an engine that makes over 1,000 hp… for a handful of laps. A near-certain pole and a ticking time bomb: any failure at 190 mph lands on you."),
+ [{l:()=>L("Montarlo","Fit it"),r:()=>roll(
+    [4,()=>(dilAcreditar(2),VAL(1.08),L("Pole espectacular y segundo puesto en carrera. Podio, +fama","A spectacular pole and second in the race. Podium, +fame"))],
+    [3,()=>(S.missRaces=Math.max(S.missRaces||0,1),OVR(-1),L("Revienta en plena recta y te llevas un susto de los que se recuerdan. −1 GP, −1 OVR","It blows on the straight and you get a scare you'll remember. −1 GP, −1 OVR"))],
+    [3,()=>L("Haces la pole… y lo pagas en carrera con el coche tocado. Sin cambios.","You take pole… and pay for it in the race with a damaged car. No change.")])},
+  {l:()=>L("Quedarte con el motor de carrera","Stick with the race engine"),r:()=>roll(
+    [5,()=>L("Sales a media parrilla pero con el coche entero. Sin cambios.","You start mid-grid but with the car in one piece. No change.")],
+    [3,()=>(CAR(.3),L("Tu prudencia da frutos el domingo. +0,3 coche","Your caution pays off on Sunday. +0.3 car"))],
+    [2,()=>(VAL(.95),L("Te llaman conservador en el paddock. −fama leve","The paddock calls you conservative. slight −fame"))])}]);
+
+EPO("ep_finturbo",[1988,1989],.6,null,
+ ()=>L("El último año del turbo","The turbo's last year"),
+ ()=>L("La federación ha puesto fecha de caducidad al turbo: el año que viene, solo motores atmosféricos. Tu equipo debe decidir si exprimir al máximo el turbo que muere o volcarse ya en el motor del futuro, y te piden opinión.",
+       "The governing body has put an expiry date on the turbo: next year, naturally aspirated engines only. Your team must decide whether to squeeze the dying turbo or commit now to the engine of the future, and they ask your opinion."),
+ [{l:()=>L("Exprimir el último turbo","Squeeze the last turbo"),r:()=>roll(
+    [4,()=>(CAR(1.5),L("Un último año de potencia salvaje. +1,5 coche","One last year of savage power. +1.5 car"))],
+    [3,()=>L("Rendís como siempre. Sin cambios.","You perform as usual. No change.")],
+    [3,()=>(CAR(-1),L("Os quedáis atrás cuando llegan los nuevos motores. −1 coche","You fall behind when the new engines arrive. −1 car"))])},
+  {l:()=>L("Volcarte en el motor del futuro","Commit to the engine of the future"),r:()=>roll(
+    [4,()=>(CAR(1),L("Os adelantáis al resto en el desarrollo. +1 coche","You get ahead of everyone in development. +1 car"))],
+    [3,()=>(CAR(-.5),L("Pagáis la apuesta con un año flojo. −0,5 coche","You pay for the gamble with a weak year. −0.5 car"))],
+    [3,()=>(VAL(1.05),L("La prensa aplaude la valentía del proyecto. +fama leve","The press applauds the project's courage. slight +fame"))])}]);
+
+/* ─── LOS 90 ─────────────────────────────────────────────────────────────────── */
+EPO("ep_activa",[1987,1993],.65,null,
+ ()=>L("Los coches que se conducen solos","The cars that drive themselves"),
+ ()=>L("Suspensión activa, control de tracción, cambio semiautomático… la electrónica hace media vuelta por ti y el coche del vecino va como sobre raíles. Hay quien dice que ya no se pilota; hay quien dice que se pilota mejor que nunca.",
+       "Active suspension, traction control, semi-automatic gearbox… the electronics do half the lap for you and the car next door runs as if on rails. Some say nobody really drives any more; others say we've never driven better."),
+ [{l:()=>L("Apoyarte en la electrónica","Lean on the electronics"),r:()=>roll(
+    [5,()=>(CAR(1.5),L("El coche es una sonrisa constante. +1,5 coche","The car is a constant smile. +1.5 car"))],
+    [3,()=>(OVR(-1),L("Te acomodas y el tacto se te duerme. −1 OVR","You get comfortable and your feel goes to sleep. −1 OVR"))],
+    [2,()=>L("Hay días en que la electrónica te falla. Sin cambios.","Some days the electronics let you down. No change.")])},
+  {l:()=>L("Pilotar con las sensaciones de siempre","Drive with your usual feel"),r:()=>roll(
+    [4,()=>(OVR(1),L("Aprendes a sentir lo que el software esconde. +1 OVR","You learn to feel what the software hides. +1 OVR"))],
+    [3,()=>(CAR(-1),L("Pierdes décimas frente a los que se dejan ayudar. −1 coche","You lose tenths to those who accept the help. −1 car"))],
+    [3,()=>L("Mismo ritmo, mejor conciencia. Sin cambios.","Same pace, clearer head. No change.")])}]);
+
+EPO("ep_sinayudas",[1993,1994],.65,null,
+ ()=>L("Se acabaron las ayudas","The aids are banned"),
+ ()=>L("Para frenar la ola de electrónica, la federación lo prohíbe casi todo: sin control de tracción, sin suspensión activa, sin ayudas al frenado. Los coches se vuelven bestias nerviosas y la diferencia entre pilotos se dispara.",
+       "To halt the tide of electronics, the governing body bans almost everything: no traction control, no active suspension, no braking aids. The cars turn into nervous beasts and the gap between drivers widens."),
+ [{l:()=>L("Entrenar a muerte para dominarlas","Train flat out to tame them"),r:()=>roll(
+    [5,()=>(OVR(1),L("Llegas a la primera carrera dominándolas. +1 OVR","You arrive at the first race having tamed them. +1 OVR"))],
+    [3,()=>L("Un invierno duro, un buen arranque. Sin cambios.","A hard winter, a good start. No change.")],
+    [2,()=>(OVR(-1),L("Te lesionas el cuello de tanto forzar. −1 OVR","You hurt your neck from overdoing it. −1 OVR"))])},
+  {l:()=>L("Apoyarte en tu ingeniero para el reglaje","Rely on your engineer for the set-up"),r:()=>roll(
+    [4,()=>(CAR(1),L("Entre los dos encontráis un equilibrio mágico. +1 coche","Between you, you find a magic balance. +1 car"))],
+    [3,()=>L("Funciona lo justo. Sin cambios.","It works well enough. No change.")],
+    [3,()=>(CAR(-.5),L("Os equivocáis de filosofía y tardáis meses en corregirla. −0,5 coche","You choose the wrong philosophy and take months to fix it. −0.5 car"))])}]);
+
+EPO("ep_software",[1994,1995],.5,null,
+ ()=>L("La sospecha del software","The software suspicion"),
+ ()=>L("Se rumorea que algunos coches llevan ayudas ocultas dentro del software: salidas perfectas, tracción sospechosa. Alguien filtra que tu equipo podría tener algo parecido… o poder usarlo. Te piden discreción.",
+       "Rumour has it that some cars carry hidden aids in their software: perfect starts, suspicious traction. Someone leaks that your team might have something similar… or could use it. You're asked to keep quiet."),
+ [{l:()=>L("Pedir que revisen vuestro coche","Ask for your car to be inspected"),r:()=>roll(
+    [5,()=>(VAL(1.1),L("Salís limpios y tu transparencia es noticia. +fama","You come out clean and your transparency makes the news. +fame"))],
+    [3,()=>L("Todo en orden y nadie se acuerda al día siguiente. Sin cambios.","All in order and nobody remembers the next day. No change.")],
+    [2,()=>(CAR(-.5),L("A tu jefe no le gusta que remuevas el avispero. −0,5 coche","Your boss doesn't like you stirring the hornets' nest. −0.5 car"))])},
+  {l:()=>L("Mirar hacia otro lado","Look the other way"),r:()=>roll(
+    [4,()=>(CAR(1),L("Nadie pregunta y el coche vuela. +1 coche","Nobody asks and the car flies. +1 car"))],
+    [3,()=>L("Pasa el chaparrón sin consecuencias. Sin cambios.","The storm passes without consequences. No change.")],
+    [3,()=>(VAL(.85),L("Estalla el escándalo y tu nombre sale en todas partes. −fama","The scandal breaks and your name is everywhere. −fame"))])}]);
+
+EPO("ep_gpda",[1994,1996],.6,null,
+ ()=>L("Unidos por la seguridad","United for safety"),
+ ()=>L("Tras un año que dejó una cicatriz en el paddock, los pilotos reactivan su asociación para exigir circuitos y coches más seguros. Te piden que des la cara, aunque algunos equipos lo ven como una amenaza.",
+       "After a year that left a scar on the paddock, the drivers revive their association to demand safer circuits and cars. They ask you to speak up, though some teams see it as a threat."),
+ [{l:()=>L("Dar la cara","Speak up"),r:()=>roll(
+    [5,()=>(VAL(1.12),L("Tu implicación te gana el respeto de todo el paddock. +fama","Your involvement wins you the respect of the whole paddock. +fame"))],
+    [3,()=>(CAR(-.5),L("Tu jefe lo vive como una deslealtad. −0,5 coche","Your boss takes it as disloyalty. −0.5 car"))],
+    [2,()=>L("Te escuchan con educación y las cosas avanzan despacio. Sin cambios.","They listen politely and things move slowly. No change.")])},
+  {l:()=>L("Apoyar sin protagonismo","Support it quietly"),r:()=>roll(
+    [5,()=>(VAL(1.04),L("Sumas tu firma sin hacer ruido. +fama leve","You add your signature without making noise. slight +fame"))],
+    [5,()=>L("Todo sigue igual que antes. Sin cambios.","Everything stays as it was. No change.")])}]);
+
+EPO("ep_repostaje",[1994,1997],.6,null,
+ ()=>L("La estrategia de las paradas","The pit-stop strategy"),
+ ()=>L("Con el repostaje de vuelta, las carreras se ganan con paradas calculadas al segundo. Tu ingeniero te plantea una parada menos de lo normal: más ritmo con el coche cargado… o un desastre si sale el coche de seguridad.",
+       "With refuelling back, races are won with stops timed to the second. Your engineer suggests one stop fewer than usual: more pace on heavy fuel… or disaster if the safety car appears."),
+ [{l:()=>L("Una parada menos","One stop fewer"),r:()=>roll(
+    [3,()=>(dilAcreditar(2),L("La estrategia sale redonda y sube al podio. Podio","The strategy works perfectly and takes you onto the podium. Podium"))],
+    [4,()=>L("El coche de seguridad llega a tiempo de dejarlo en nada. Sin cambios.","The safety car arrives just in time to make it pointless. No change.")],
+    [3,()=>(VAL(.95),L("Te quedas sin gomas a falta de cinco vueltas y pierdes puestos. −fama leve","You run out of rubber with five laps to go and drop places. slight −fame"))])},
+  {l:()=>L("Estrategia segura","Safe strategy"),r:()=>roll(
+    [5,()=>(dilAcreditar(4),L("Cumples con una carrera limpia y sumas. Puntos","A clean race and you score. Points"))],
+    [3,()=>L("Terminas donde empezaste. Sin cambios.","You finish where you started. No change.")],
+    [2,()=>(CAR(-.3),L("Los rivales arriesgan y te pasan. −0,3 coche","Rivals gamble and pass you. −0.3 car"))])}]);
+
+EPO("ep_ranuras",[1997,1998],.6,null,
+ ()=>L("Neumáticos con ranuras","Grooved tyres"),
+ ()=>L("Para 1998, los neumáticos pierden agarre con ranuras y los coches se estrechan: menos adherencia, más deslizamiento. En la guerra de gomas entre los dos suministradores, tu equipo puede cambiarse al rival.",
+       "For 1998 the tyres lose grip with grooves and the cars get narrower: less adhesion, more sliding. In the tyre war between the two suppliers, your team could switch to the other one."),
+ [{l:()=>L("Cambiar de suministrador","Switch supplier"),r:()=>roll(
+    [4,()=>(CAR(1),L("Las gomas nuevas se llevan de maravilla con el coche. +1 coche","The new tyres suit the car wonderfully. +1 car"))],
+    [3,()=>(CAR(-1),L("El cambio sale caro: otro coche, otras reacciones. −1 coche","The switch costs dearly: different car, different reactions. −1 car"))],
+    [3,()=>L("Mismo ritmo con otro nombre en el flanco. Sin cambios.","Same pace with another name on the sidewall. No change.")])},
+  {l:()=>L("Quedarte con las de siempre","Stay with your usual ones"),r:()=>roll(
+    [5,()=>L("Conoces su comportamiento al milímetro. Sin cambios.","You know how they behave to the millimetre. No change.")],
+    [3,()=>(CAR(.5),L("Tu experiencia con ellas os da una ventaja. +0,5 coche","Your experience with them gives you an edge. +0.5 car"))],
+    [2,()=>(CAR(-.5),L("El rival acierta con una mezcla y os deja atrás. −0,5 coche","The rival nails a compound and leaves you behind. −0.5 car"))])}]);
+
+EPO("ep_fabricantes",[1999,2001],.55,null,
+ ()=>L("Llegan las fábricas","The manufacturers arrive"),
+ ()=>L("Marcas con presupuestos gigantescos aterrizan en la F1 y el dinero se mueve por todo el paddock. A tu equipo le llega una oferta de compra de un fabricante, y la dirección pide tu opinión como cara del proyecto.",
+       "Brands with gigantic budgets land in F1 and money moves all over the paddock. Your team receives a takeover offer from a manufacturer, and management asks your opinion as the face of the project."),
+ [{l:()=>L("Apoyar la venta","Back the sale"),r:()=>roll(
+    [4,()=>(CAR(1.5),L("Llega el dinero y con él un túnel de viento nuevo. +1,5 coche","The money arrives and with it a new wind tunnel. +1.5 car"))],
+    [3,()=>(VAL(1.05),L("El nuevo propietario te nombra su embajador. +fama leve","The new owner makes you its ambassador. slight +fame"))],
+    [3,()=>(CAR(-.5),L("Los de la fábrica traen sus propias ideas y cuesta encajarlas. −0,5 coche","The factory people bring their own ideas and they take time to fit. −0.5 car"))])},
+  {l:()=>L("Defender la independencia","Defend independence"),r:()=>roll(
+    [4,()=>(VAL(1.1),L("La plantilla te adora por defender la casa. +fama","The staff adore you for defending the house. +fame"))],
+    [3,()=>L("La oferta se enfría y todo sigue igual. Sin cambios.","The offer cools and everything stays the same. No change.")],
+    [3,()=>(CAR(-1),L("Sin dinero fresco, el desarrollo se frena. −1 coche","Without fresh money, development slows. −1 car"))])}]);
+
+/* ─── LOS 2000 ───────────────────────────────────────────────────────────────── */
+EPO("ep_traccion",[2001,2002],.55,null,
+ ()=>L("Vuelven las ayudas","The aids are back"),
+ ()=>L("La federación autoriza de nuevo el control de tracción y las salidas asistidas. Los pilotos con tacto notan que el coche perdona demasiado; los ingenieros, que ahí hay décimas.",
+       "The governing body allows traction control and assisted starts again. Drivers with feel notice that the car forgives too much; the engineers notice there are tenths in it."),
+ [{l:()=>L("Dejar trabajar al software","Let the software work"),r:()=>roll(
+    [5,()=>(CAR(1),L("Las salidas son perfectas y el coche se pega al asfalto. +1 coche","Perfect starts and the car sticks to the tarmac. +1 car"))],
+    [3,()=>L("Funciona sin más. Sin cambios.","It simply works. No change.")],
+    [2,()=>(OVR(-1),L("Te acostumbras y pierdes sensibilidad. −1 OVR","You get used to it and lose sensitivity. −1 OVR"))])},
+  {l:()=>L("Pilotar tú, sin que nadie te ayude","Do the driving yourself"),r:()=>roll(
+    [4,()=>(OVR(1),L("Conservas un tacto que muchos ya han perdido. +1 OVR","You keep a feel many have already lost. +1 OVR"))],
+    [3,()=>L("Pierdes lo que ganas. Sin cambios.","You lose what you gain. No change.")],
+    [3,()=>(CAR(-.5),L("Tus tiempos de arrancada se resienten. −0,5 coche","Your launch times suffer. −0.5 car"))])}]);
+
+EPO("ep_ordenes",[2002,2010],.5,()=>tieneCompanero(),
+ ()=>L("El mensaje en clave","The coded message"),
+ ()=>L("Las órdenes de equipo están prohibidas desde que una carrera acabó en escándalo, pero tu muro tiene su forma de hacerte llegar el recado: una frase aparentemente inocente por radio que significa «deja pasar a tu compañero».",
+       "Team orders have been banned since a race ended in scandal, but your pit wall has its way of getting the message across: a seemingly innocent radio phrase that means «let your team-mate through»."),
+ [{l:()=>L("Entender el mensaje","Get the message"),r:()=>roll(
+    [4,()=>(CAR(.5),VAL(1.04),L("Lo haces con elegancia y el equipo lo recuerda. +0,5 coche, +fama leve","You do it with grace and the team remembers. +0.5 car, slight +fame"))],
+    [3,()=>(VAL(.93),L("La afición lo huele y te abuchea por el compañero. −fama","The fans smell it and boo the whole thing. −fame"))],
+    [3,()=>L("Nadie se entera y todo queda en casa. Sin cambios.","Nobody finds out and it stays in-house. No change.")])},
+  {l:()=>L("Hacerte el sueco","Play dumb"),r:()=>roll(
+    [4,()=>(VAL(1.06),L("Nadie puede probar nada y tu actitud gusta. +fama","Nobody can prove anything and your attitude goes down well. +fame"))],
+    [3,()=>(CAR(-1),L("El jefe toma nota y el ambiente se enfría. −1 coche","The boss takes note and the mood cools. −1 car"))],
+    [3,()=>L("Tu compañero se queja, pero la carrera sigue. Sin cambios.","Your team-mate complains, but the race goes on. No change.")])}]);
+
+EPO("ep_unavuelta",[2003,2005],.55,null,
+ ()=>L("El sábado de una sola vuelta","The one-lap Saturday"),
+ ()=>L("Clasificación a una vuelta lanzada, con la gasolina de carrera ya en el depósito: sales cuando te toca y vas tan cargado como decidas. Tu ingeniero te deja elegir.",
+       "A single flying lap in qualifying, with the race fuel already on board: you go out when it's your turn and as heavy as you decide. Your engineer lets you choose."),
+ [{l:()=>L("Depósito ligero: a por la pole","Light tank: go for pole"),r:()=>roll(
+    [3,()=>(dilAcreditar(2),L("Pole… y un segundo puesto que sabe a victoria. Podio","Pole… and a second place that tastes like a win. Podium"))],
+    [4,()=>L("Haces buen sábado y regular domingo. Sin cambios.","A good Saturday and a so-so Sunday. No change.")],
+    [3,()=>(CAR(-.3),L("Te quedas corto de gasolina y paras demasiado pronto. −0,3 coche","You run short of fuel and stop too early. −0.3 car"))])},
+  {l:()=>L("Depósito pesado: carrera larga","Heavy tank: long race"),r:()=>roll(
+    [4,()=>(dilAcreditar(4),L("Sales atrás y remontas con paciencia. Puntos","You start at the back and climb with patience. Points"))],
+    [4,()=>L("Domingo gris sin sobresaltos. Sin cambios.","A grey, uneventful Sunday. No change.")],
+    [2,()=>(VAL(.95),L("Sales tan atrás que no hay manera de remontar. −fama leve","You start so far back there's no way to recover. slight −fame"))])}]);
+
+EPO("ep_indy",[2005,2005],.8,()=>epoHash(S.team.name)%3!==0,
+ ()=>L("Seis coches en Indianápolis","Six cars at Indianapolis"),
+ ()=>L("Fin de semana en Indianápolis: los neumáticos de tu equipo no aguantan el peralte y ni los técnicos garantizan su seguridad. Tras la vuelta de formación, el equipo plantea que ninguno de sus coches tome la salida.",
+       "Weekend at Indianapolis: your team's tyres can't take the banking and even the technicians won't guarantee their safety. After the formation lap, the team proposes that none of its cars take the start."),
+ [{l:()=>L("Entrar a boxes con el equipo","Pit with the team"),r:()=>roll(
+    [5,()=>(CAR(.5),VAL(.93),L("El público abuchea, pero tu gente sabe que cuidaste su seguridad. +0,5 coche, −fama leve","The crowd boos, but your people know you put safety first. +0.5 car, slight −fame"))],
+    [3,()=>(VAL(.88),L("La prensa os llama «los que se fueron». −fama","The press calls you «the ones who left». −fame"))],
+    [2,()=>L("Os critican hoy y os dan la razón dentro de un mes. Sin cambios.","They criticise you today and say you were right in a month. No change.")])},
+  {l:()=>L("Salir a correr igualmente","Race anyway"),r:()=>roll(
+    [3,()=>(dilAcreditar(3),VAL(.9),L("Sumas puntos con el neumático al límite, pero te llaman temerario. Podio, −fama","You score on tyres at the limit, but they call you reckless. Podium, −fame"))],
+    [4,()=>(S.missRaces=Math.max(S.missRaces||0,1),OVR(-1),L("Un pinchazo en el peralte te deja sin carrera y con un buen susto. −1 GP, −1 OVR","A puncture on the banking costs you the race and gives you a serious scare. −1 GP, −1 OVR"))],
+    [3,()=>(CAR(-.5),L("Tu jefe no te lo perdona. −0,5 coche","Your boss doesn't forgive you. −0.5 car"))])},
+  {l:()=>L("Proponer una chicane improvisada","Propose a makeshift chicane"),r:()=>roll(
+    [3,()=>(VAL(1.1),L("Tu idea se discute en serio y te llevas el respeto del paddock. +fama","Your idea is seriously discussed and wins you the paddock's respect. +fame"))],
+    [7,()=>L("La propuesta se pierde entre las reuniones. Sin cambios.","The proposal gets lost in the meetings. No change.")])}]);
+
+EPO("ep_crisis",[2008,2009],.75,()=>["Honda","Toyota","BMW Sauber","Renault","Jaguar","BAR"].indexOf(S.team.name)>=0,
+ ()=>L("La crisis se lleva a las fábricas","The crisis takes the factories"),
+ ()=>L("La crisis financiera ha llegado al paddock. Las marcas recortan, los accionistas aprietan y circula el rumor de que tu fábrica va a cerrar el grifo. Tu representante te pregunta si prefieres ir buscando otro volante antes de que sea tarde.",
+       "The financial crisis has reached the paddock. Brands are cutting, shareholders squeezing and word is your factory is about to turn off the tap. Your agent asks whether you'd rather start looking for another seat before it's too late."),
+ [{l:()=>L("Quedarte y luchar por el proyecto","Stay and fight for the project"),r:()=>roll(
+    [4,()=>(CAR(1.5),L("Aparece un comprador a última hora y el equipo respira. +1,5 coche","A buyer appears at the last minute and the team breathes again. +1.5 car"))],
+    [3,()=>L("Os salváis por los pelos, con menos dinero. Sin cambios.","You survive by the skin of your teeth, with less money. No change.")],
+    [3,()=>(S.forceMove=true,L("El proyecto se cae y te quedas sin volante. Buscas asiento nuevo.","The project collapses and you're left without a seat. You look for a new one."))])},
+  {l:()=>L("Mover ficha ya","Make your move now"),r:()=>(S.forceMove=true,L("Tu representante te abre puertas y rompes con la fábrica. Sales al mercado.","Your agent opens doors and you break with the factory. You go to the market."))}]);
+
+EPO("ep_congelados",[2007,2008],.55,null,
+ ()=>L("Motores congelados","Frozen engines"),
+ ()=>L("La federación congela el desarrollo de los motores para ahorrar costes: la potencia ya no se toca y todo el progreso tiene que venir de la aerodinámica y de los neumáticos. Tu ingeniero te pide que le ayudes a rascar las últimas décimas.",
+       "The governing body freezes engine development to save costs: power can no longer be touched, so all progress must come from aerodynamics and tyres. Your engineer asks you to help scrape the last tenths."),
+ [{l:()=>L("Pasar horas en el túnel de viento","Spend hours in the wind tunnel"),r:()=>roll(
+    [4,()=>(CAR(1),L("Tus comentarios dan con el problema. +1 coche","Your comments find the problem. +1 car"))],
+    [3,()=>L("Mucho trabajo, poco resultado. Sin cambios.","A lot of work, little result. No change.")],
+    [3,()=>(OVR(-1),L("Te quedas sin tiempo para entrenar. −1 OVR","You run out of time to train. −1 OVR"))])},
+  {l:()=>L("Centrarte en sacar más del neumático","Focus on getting more from the tyre"),r:()=>roll(
+    [4,()=>(OVR(1),L("Aprendes a hacerlos durar más que nadie. +1 OVR","You learn to make them last longer than anyone. +1 OVR"))],
+    [4,()=>L("Mismo ritmo de siempre. Sin cambios.","The usual pace. No change.")],
+    [2,()=>(CAR(-.3),L("El coche se queda sin evolución aerodinámica. −0,3 coche","The car goes without aero updates. −0.3 car"))])}]);
+
+EPO("ep_kers",[2009,2010],.6,null,
+ ()=>L("El botón del KERS","The KERS button"),
+ ()=>L("Llega el KERS: un botón en el volante que da unos segundos de potencia extra cada vuelta. Tu ingeniero se pregunta si gastarlos en la salida o guardarlos para adelantar. En el garaje hay quien duda de su peso y su fiabilidad.",
+       "KERS arrives: a button on the steering wheel that gives a few seconds of extra power every lap. Your engineer wonders whether to spend them at the start or save them to overtake. Some in the garage doubt its weight and reliability."),
+ [{l:()=>L("Gastarlo en la salida","Spend it at the start"),r:()=>roll(
+    [4,()=>(dilAcreditar(3),L("Ganas posiciones en la primera curva y las mantienes. Podio","You gain places into the first corner and keep them. Podium"))],
+    [4,()=>L("La salida sale bien, la carrera normal. Sin cambios.","The start goes well, the race is normal. No change.")],
+    [2,()=>(CAR(-.3),L("El sistema se calienta y te deja sin ayuda. −0,3 coche","The system overheats and leaves you without help. −0.3 car"))])},
+  {l:()=>L("Guardarlo para adelantar","Save it for overtaking"),r:()=>roll(
+    [4,()=>(dilAcreditar(3),VAL(1.04),L("Un adelantamiento a lo grande da sentido a la carrera. Podio, +fama leve","A big overtake gives the race its meaning. Podium, slight +fame"))],
+    [4,()=>L("No encuentras el momento. Sin cambios.","You never find the moment. No change.")],
+    [2,()=>(VAL(.96),L("Lo gastas mal y te quedas con las ganas. −fama leve","You spend it badly and are left wanting. slight −fame"))])}]);
+
+EPO("ep_difusor",[2009,2009],.7,null,
+ ()=>L("El difusor de la polémica","The controversial diffuser"),
+ ()=>L("Tres equipos estrenan un difusor «creativo» y la federación lo declara legal. El resto duda entre protestar o copiarlo, y tu equipo necesita cuatro meses para rehacer el fondo del coche.",
+       "Three teams unveil a «creative» diffuser and the governing body declares it legal. The rest wonder whether to protest or copy it, and your team needs four months to rebuild the car's floor."),
+ [{l:()=>L("Copiarlo cuanto antes","Copy it as soon as possible"),r:()=>roll(
+    [4,()=>(CAR(1.5),L("Lo tenéis puesto a mitad de año y el coche despega. +1,5 coche","You have it fitted mid-season and the car takes off. +1.5 car"))],
+    [3,()=>(CAR(.5),L("Llegáis tarde, pero llegáis. +0,5 coche","You're late, but you get there. +0.5 car"))],
+    [3,()=>(CAR(-.5),L("La prisa os juega una mala pasada. −0,5 coche","The rush backfires. −0.5 car"))])},
+  {l:()=>L("Protestar ante la federación","Protest to the governing body"),r:()=>roll(
+    [4,()=>(VAL(1.05),L("Tu postura gusta a los puristas. +fama leve","Purists like your stand. slight +fame"))],
+    [3,()=>L("La protesta se desestima y la vida sigue. Sin cambios.","The protest is dismissed and life goes on. No change.")],
+    [3,()=>(CAR(-1),L("Mientras protestáis, los rivales se escapan. −1 coche","While you protest, your rivals pull away. −1 car"))])}]);
+
+/* ─── LOS 2010 ───────────────────────────────────────────────────────────────── */
+EPO("ep_sinrepostar",[2010,2010],.7,null,
+ ()=>L("Sin repostar: gasolina para todo el domingo","No refuelling: fuel for the whole Sunday"),
+ ()=>L("Se prohíbe repostar en carrera. Sales con el depósito lleno hasta arriba: el coche pesa una barbaridad y los neumáticos sufren como nunca. Toca gestionar.",
+       "Refuelling is banned. You start with the tank full to the brim: the car weighs a ton and the tyres suffer like never before. It's all about management."),
+ [{l:()=>L("Gestionar y llegar","Manage and finish"),r:()=>roll(
+    [3,()=>(dilAcreditar(3),L("Tu paciencia da frutos y subes al podio. Podio","Your patience pays off and you take a podium. Podium"))],
+    [4,()=>L("Carrera correcta, sin brillo. Sin cambios.","A decent race, nothing flashy. No change.")],
+    [3,()=>(OVR(1),L("Aprendes a cuidar las gomas como nadie. +1 OVR","You learn to look after the tyres like nobody else. +1 OVR"))])},
+  {l:()=>L("Atacar desde el inicio","Attack from the start"),r:()=>roll(
+    [3,()=>(dilAcreditar(2),L("Te lo juegas todo en las primeras vueltas… y sale. Podio","You risk everything in the opening laps… and it works. Podium"))],
+    [4,()=>(VAL(.95),L("Te quedas sin gomas y pierdes puestos. −fama leve","You run out of tyre and lose places. slight −fame"))],
+    [3,()=>L("Mucho ruido y poco premio. Sin cambios.","A lot of noise for little reward. No change.")])}]);
+
+EPO("ep_drs",[2011,2013],.6,null,
+ ()=>L("El ala que se abre","The wing that opens"),
+ ()=>L("Nace el DRS: un alerón trasero móvil que facilita adelantar a quien va delante. Los puristas lo llaman trampa; los ingenieros, una herramienta. Tienes que decidir cómo usarlo cuando te toque ser el cazador… o la presa.",
+       "The DRS is born: a movable rear wing that makes it easier to pass the car ahead. Purists call it cheating; engineers call it a tool. You have to decide how to use it when you're the hunter… or the prey."),
+ [{l:()=>L("Cazar con paciencia hasta la zona","Hunt patiently until the zone"),r:()=>roll(
+    [4,()=>(dilAcreditar(3),VAL(1.04),L("Esperas, abres el ala y pasas sin drama. Podio, +fama leve","You wait, open the wing and pass without drama. Podium, slight +fame"))],
+    [4,()=>L("Te quedas pegado sin poder pasar. Sin cambios.","You stay glued without being able to pass. No change.")],
+    [2,()=>(OVR(1),L("Aprendes a leer los DRS de los demás. +1 OVR","You learn to read other people's DRS. +1 OVR"))])},
+  {l:()=>L("Defender a muerte antes de la zona","Defend hard before the zone"),r:()=>roll(
+    [4,()=>(VAL(1.05),L("Te cierras bien y el público te adora. +fama leve","You defend well and the crowd loves it. slight +fame"))],
+    [3,()=>(CAR(-.3),L("Gastas las gomas defendiendo y lo pagas al final. −0,3 coche","You burn the tyres defending and pay for it at the end. −0.3 car"))],
+    [3,()=>L("Aguantas, pero a un coste. Sin cambios.","You hold on, but at a cost. No change.")])}]);
+
+EPO("ep_neumaticos",[2013,2013],.7,null,
+ ()=>L("Neumáticos que estallan","Exploding tyres"),
+ ()=>L("Varios neumáticos revientan a 300 km/h durante el fin de semana. Los pilotos están que arden y el suministrador promete soluciones sin demasiada prisa.",
+       "Several tyres burst at 190 mph over the weekend. The drivers are furious and the supplier promises solutions without much haste."),
+ [{l:()=>L("Alzar la voz como piloto","Speak up as a driver"),r:()=>roll(
+    [4,()=>(VAL(1.1),L("Tu queja se convierte en la de todos. +fama","Your complaint becomes everyone's. +fame"))],
+    [3,()=>L("Te escuchan y no cambia nada. Sin cambios.","They listen and nothing changes. No change.")],
+    [3,()=>(CAR(-.3),L("El suministrador no te lo perdona y notas las gomas peores. −0,3 coche","The supplier doesn't forgive you and your tyres feel worse. −0.3 car"))])},
+  {l:()=>L("Pedir al equipo que baje la presión","Ask the team to lower the pressures"),r:()=>roll(
+    [4,()=>(CAR(.5),L("Os adelantáis con un reglaje prudente. +0,5 coche","You get ahead with a cautious set-up. +0.5 car"))],
+    [3,()=>L("Menos riesgo y menos ritmo. Sin cambios.","Less risk and less pace. No change.")],
+    [3,()=>(OVR(-1),L("Pierdes confianza al conducir al límite sin saber cuándo va a reventar. −1 OVR","You lose confidence driving at the limit not knowing when it will go. −1 OVR"))])}]);
+
+EPO("ep_hibrida",[2014,2015],.7,null,
+ ()=>L("Ahorra combustible, por favor","Save fuel, please"),
+ ()=>L("La nueva era híbrida limita el combustible de la carrera. Por radio te piden «lift and coast» justo cuando vas pegado al de delante. Cumplir te asegura la meta; desobedecer te deja sin gasolina… o en el podio.",
+       "The new hybrid era limits race fuel. Over the radio they ask you to lift and coast just when you're glued to the car ahead. Obeying guarantees the flag; disobeying leaves you out of fuel… or on the podium."),
+ [{l:()=>L("Obedecer y gestionar","Obey and manage"),r:()=>roll(
+    [5,()=>(CAR(.3),L("Llegas con margen y el equipo te lo reconoce. +0,3 coche","You finish with a margin and the team acknowledges it. +0.3 car"))],
+    [3,()=>(dilAcreditar(5),L("Sumas puntos con una carrera inteligente. Puntos","You score with an intelligent race. Points"))],
+    [2,()=>(VAL(.96),L("Pierdes una posición por tanta prudencia. −fama leve","You lose a place by being so careful. slight −fame"))])},
+  {l:()=>L("Ignorar la radio","Ignore the radio"),r:()=>roll(
+    [3,()=>(dilAcreditar(2),VAL(1.08),L("Adelantas y llegas justo a la meta. Podio, +fama","You pass and reach the flag by a whisker. Podium, +fame"))],
+    [4,()=>(VAL(.95),L("Te quedas sin gasolina en la última vuelta. −fama leve","You run dry on the last lap. slight −fame"))],
+    [3,()=>(CAR(-.3),L("Tu ingeniero se queja de la desobediencia. −0,3 coche","Your engineer complains about the disobedience. −0.3 car"))])}]);
+
+EPO("ep_halo",[2016,2018],.6,null,
+ ()=>L("El Halo","The Halo"),
+ ()=>L("La federación impone el halo, una estructura de titanio sobre tu cabeza. Unos lo llaman «la chancla», otros, un salvavidas. Te piden que des tu opinión en público.",
+       "The governing body imposes the halo, a titanium structure above your head. Some call it «the flip-flop», others a lifesaver. You're asked to give your view in public."),
+ [{l:()=>L("Defenderlo abiertamente","Defend it openly"),r:()=>roll(
+    [4,()=>(VAL(1.08),L("Tu postura se aplaude en todo el paddock. +fama","Your stance is applauded across the paddock. +fame"))],
+    [4,()=>L("Un comentario más entre tantos. Sin cambios.","One more comment among many. No change.")],
+    [2,()=>(VAL(.96),L("Hay quien te acusa de querer quedar bien. −fama leve","Some accuse you of wanting to look good. slight −fame"))])},
+  {l:()=>L("Quejarte de la estética","Complain about the looks"),r:()=>roll(
+    [3,()=>(VAL(1.04),L("Muchos aficionados piensan lo mismo y te lo agradecen. +fama leve","Many fans think the same and thank you. slight +fame"))],
+    [3,()=>L("Se olvida en una semana. Sin cambios.","Forgotten within a week. No change.")],
+    [4,()=>(VAL(.93),L("Te señalan por frivolizar con la seguridad. −fama","You're called out for being flippant about safety. −fame"))])}]);
+
+EPO("ep_alerones",[2019,2019],.6,null,
+ ()=>L("Menos aire sucio","Less dirty air"),
+ ()=>L("La federación rediseña los alerones para que seguir de cerca a otro coche no te destroce el agarre. En el simulador parece que funciona; en pista, nadie lo sabe. Tu equipo te pide que pruebes un reglaje agresivo para el primer GP.",
+       "The governing body redesigns the wings so that following another car closely doesn't wreck your grip. It seems to work in the simulator; on track, nobody knows. Your team asks you to try an aggressive set-up for the first GP."),
+ [{l:()=>L("Probar el reglaje agresivo","Try the aggressive set-up"),r:()=>roll(
+    [4,()=>(CAR(.8),L("Funciona y ganáis ritmo en tráfico. +0,8 coche","It works and you gain pace in traffic. +0.8 car"))],
+    [3,()=>L("Hay mejoras, pero modestas. Sin cambios.","There are gains, but modest ones. No change.")],
+    [3,()=>(OVR(-1),L("El coche se vuelve imprevisible y pierdes confianza. −1 OVR","The car becomes unpredictable and you lose confidence. −1 OVR"))])},
+  {l:()=>L("Esperar a verlo en otros coches","Wait and see it on other cars"),r:()=>roll(
+    [5,()=>L("Evitas errores de debutante. Sin cambios.","You avoid beginner's mistakes. No change.")],
+    [3,()=>(CAR(-.5),L("Los rivales aprenden antes que tú. −0,5 coche","Your rivals learn before you. −0.5 car"))],
+    [2,()=>(VAL(1.03),L("Tu cautela se aplaude en el muro. +fama leve","Your caution is applauded on the pit wall. slight +fame"))])}]);
+
+EPO("ep_anchos",[2017,2017],.65,null,
+ ()=>L("El año de los coches monstruo","The year of the monster cars"),
+ ()=>L("Los coches de 2017 son más anchos, con más agarre y velocidades de curva que dan vértigo. Los cuellos sufren y los preparadores físicos viven su mejor momento.",
+       "The 2017 cars are wider, with more grip and cornering speeds that make you dizzy. Necks suffer and the trainers are having their finest hour."),
+ [{l:()=>L("Duplicar el trabajo físico","Double the physical work"),r:()=>roll(
+    [5,()=>(OVR(1),L("Llegas a la primera carrera hecho un toro. +1 OVR","You arrive at the first race like a bull. +1 OVR"))],
+    [3,()=>L("Mucho esfuerzo y poco cambio. Sin cambios.","A lot of effort and little change. No change.")],
+    [2,()=>(OVR(-1),L("Te sobrecargas y arrastras una lesión. −1 OVR","You overdo it and carry an injury. −1 OVR"))])},
+  {l:()=>L("Confiar en tu base","Trust your base fitness"),r:()=>roll(
+    [5,()=>L("Te las apañas sin problema. Sin cambios.","You manage without a problem. No change.")],
+    [3,()=>(OVR(-1),L("Llegas justo y lo notas a final de carrera. −1 OVR","You arrive short and feel it at the end of races. −1 OVR"))],
+    [2,()=>(OVR(1),L("Te sientes ágil y fresco. +1 OVR","You feel agile and fresh. +1 OVR"))])}]);
+
+/* ─── LA ACTUALIDAD ──────────────────────────────────────────────────────────── */
+EPO("ep_tope",[2021,2022],.65,null,
+ ()=>L("El tope presupuestario","The budget cap"),
+ ()=>L("Entra el límite de gasto: los equipos recortan personal y desarrollo, y en el garaje se nota la tensión. Tu equipo te pide un esfuerzo extra: aceptar un recorte de bonus y ayudar a ahorrar donde se pueda.",
+       "The spending cap arrives: teams cut staff and development, and the tension shows in the garage. Your team asks for an extra effort: accept a bonus cut and help save wherever possible."),
+ [{l:()=>L("Aceptar el recorte","Accept the cut"),r:()=>roll(
+    [5,()=>(CAR(.5),L("El equipo te lo agradece y se nota en el desarrollo. +0,5 coche","The team is grateful and it shows in development. +0.5 car"))],
+    [3,()=>(VAL(1.05),L("La plantilla te aplaude por dar ejemplo. +fama leve","The staff applaud you for leading by example. slight +fame"))],
+    [2,()=>L("Pagas el recorte sin pena ni gloria. Sin cambios.","You take the cut without fuss. No change.")])},
+  {l:()=>L("Negociar duro","Negotiate hard"),r:()=>roll(
+    [4,()=>L("Acordáis un punto medio. Sin cambios.","You agree a middle ground. No change.")],
+    [3,()=>(VAL(.95),L("Se filtra que anteponías tu sueldo al proyecto. −fama leve","It leaks that you put your salary before the project. slight −fame"))],
+    [3,()=>(CAR(-.5),L("Tu actitud enfría el ambiente en el box. −0,5 coche","Your attitude chills the mood in the garage. −0.5 car"))])}]);
+
+EPO("ep_direccion",[2021,2023],.55,null,
+ ()=>L("La decisión que nadie entiende","The decision nobody understands"),
+ ()=>L("Un fin de semana, la dirección de carrera toma una decisión que cambia el resultado y deja a medio paddock con la boca abierta. Tu equipo quiere reclamar y te pide que des la cara ante los medios.",
+       "One weekend, race control makes a decision that changes the result and leaves half the paddock open-mouthed. Your team wants to appeal and asks you to front it with the media."),
+ [{l:()=>L("Dar la cara y reclamar","Front it and appeal"),r:()=>roll(
+    [4,()=>(VAL(1.08),L("Tu defensa es contundente y convence. +fama","Your defence is forceful and convincing. +fame"))],
+    [3,()=>L("La reclamación se pierde en un cajón. Sin cambios.","The appeal disappears into a drawer. No change.")],
+    [3,()=>(VAL(.94),L("Se te va la mano con el tono y te sanciona la polémica. −fama","You overdo the tone and the controversy costs you. −fame"))])},
+  {l:()=>L("Dejarlo pasar y mirar a la siguiente","Let it go and look to the next one"),r:()=>roll(
+    [5,()=>L("Pasas página con elegancia. Sin cambios.","You move on with grace. No change.")],
+    [3,()=>(OVR(1),L("Canalizas la rabia en pista. +1 OVR","You channel the anger on track. +1 OVR"))],
+    [2,()=>(CAR(-.3),L("En el equipo creen que debiste pelearlo. −0,3 coche","In the team they think you should have fought it. −0.3 car"))])}]);
+
+EPO("ep_porpoising",[2022,2023],.7,null,
+ ()=>L("El coche que rebota","The bouncing car"),
+ ()=>L("Los nuevos coches de efecto suelo rebotan a alta velocidad. Te duele la espalda tras cada carrera y los médicos piden soluciones. Puedes decirlo en público o aguantar y esperar a que el equipo lo arregle.",
+       "The new ground-effect cars bounce at high speed. Your back hurts after every race and the doctors demand solutions. You can say it in public or grit your teeth and wait for the team to fix it."),
+ [{l:()=>L("Decirlo en público","Say it in public"),r:()=>roll(
+    [4,()=>(CAR(.5),VAL(1.05),L("La presión surte efecto y el equipo se pone las pilas. +0,5 coche, +fama leve","The pressure works and the team gets its act together. +0.5 car, slight +fame"))],
+    [3,()=>L("Te escuchan, pero poco cambia. Sin cambios.","They listen, but little changes. No change.")],
+    [3,()=>(VAL(.93),L("Te acusan de excusarte. −fama","You're accused of making excuses. −fame"))])},
+  {l:()=>L("Aguantar y rodar","Grit your teeth and drive"),r:()=>roll(
+    [4,()=>L("Aprietas los dientes y sacas la temporada. Sin cambios.","You grit your teeth and get through the season. No change.")],
+    [3,()=>(OVR(-1),L("La espalda se resiente y el rendimiento también. −1 OVR","Your back suffers and so does your performance. −1 OVR"))],
+    [3,()=>(OVR(1),L("Tu fortaleza te distingue de los demás. +1 OVR","Your resilience sets you apart. +1 OVR"))])}]);
+
+EPO("ep_sprint",[2021,2025],.5,null,
+ ()=>L("Sábado de sprint","Sprint Saturday"),
+ ()=>L("Hay carrera corta el sábado: puntos extra, más riesgo y menos tiempo para ajustar el coche. Tu ingeniero te pregunta cuánto quieres arriesgar.",
+       "There's a short race on Saturday: extra points, more risk and less time to tune the car. Your engineer asks how much you want to risk."),
+ [{l:()=>L("Ir a por todo","Go all in"),r:()=>roll(
+    [3,()=>(dilAcreditar(2),L("Tu agresividad paga y te llevas el sábado. Podio","Your aggression pays and you take the Saturday. Podium"))],
+    [4,()=>L("Mucho ruido y poco cambio. Sin cambios.","A lot of noise, little change. No change.")],
+    [3,()=>(OVR(-1),L("Un toque en la primera curva te arruina el fin de semana. −1 OVR","A first-corner clash ruins your weekend. −1 OVR"))])},
+  {l:()=>L("Guardar el coche","Save the car"),r:()=>roll(
+    [5,()=>L("Sumas lo que toca y te guardas el domingo. Sin cambios.","You score what's there and keep your Sunday intact. No change.")],
+    [3,()=>(dilAcreditar(4),L("Llegas limpio y sumas. Puntos","You finish clean and score. Points"))],
+    [2,()=>(VAL(.96),L("Te critican por no atacar. −fama leve","You're criticised for not attacking. slight −fame"))])}]);
+
+EPO("ep_vegas",[2023,2025],.55,null,
+ ()=>L("Una carrera a medianoche","A midnight race"),
+ ()=>L("El Gran Premio de Las Vegas se corre de madrugada, con el asfalto helado y el reloj biológico patas arriba. Puedes cambiar tus horarios de sueño desde una semana antes o confiar en tu cuerpo.",
+       "The Las Vegas Grand Prix is run in the small hours, with freezing tarmac and your body clock upside-down. You can shift your sleep schedule a week ahead or trust your body."),
+ [{l:()=>L("Vivir en horario de carrera","Live on race time"),r:()=>roll(
+    [5,()=>(OVR(1),L("Llegas despierto cuando todos bostezan. +1 OVR","You arrive awake when everyone else is yawning. +1 OVR"))],
+    [3,()=>L("Notas la diferencia solo en las ojeras. Sin cambios.","You only notice it in the dark circles. No change.")],
+    [2,()=>(OVR(-1),L("Dormir de día te deja hecho polvo. −1 OVR","Sleeping by day leaves you wrecked. −1 OVR"))])},
+  {l:()=>L("No tocar tus rutinas","Keep your routines"),r:()=>roll(
+    [4,()=>L("Te acuestas a tu hora y corres como siempre. Sin cambios.","You go to bed at your usual time and race as always. No change.")],
+    [3,()=>(OVR(-1),L("Se te cierran los ojos en las últimas vueltas. −1 OVR","Your eyes start to close in the final laps. −1 OVR"))],
+    [3,()=>(OVR(1),L("Tu rutina te mantiene fresco. +1 OVR","Your routine keeps you fresh. +1 OVR"))])}]);
+
+EPO("ep_2026",[2024,2026],.6,null,
+ ()=>L("Hacia el reglamento de 2026","Towards the 2026 rules"),
+ ()=>L("Los motores de 2026 serán casi mitad eléctricos, hay marcas nuevas en el paddock y los equipos reordenan sus planes. Tu ingeniero jefe te pide ayuda en el simulador para el nuevo reglamento… a costa de horas de descanso.",
+       "The 2026 engines will be almost half electric, new brands are in the paddock and teams are reshuffling their plans. Your chief engineer asks for help in the simulator for the new rules… at the cost of rest hours."),
+ [{l:()=>L("Ponerte a trabajar con la fábrica","Get to work with the factory"),r:()=>roll(
+    [4,()=>(CAR(1),L("Tu feedback acorta el desarrollo. +1 coche","Your feedback shortens development. +1 car"))],
+    [3,()=>(OVR(1),L("El simulador te enseña trucos que usas en pista. +1 OVR","The simulator teaches you tricks you use on track. +1 OVR"))],
+    [3,()=>(OVR(-1),L("Tantas horas de más te pasan factura. −1 OVR","All those extra hours take their toll. −1 OVR"))])},
+  {l:()=>L("Centrarte en el campeonato","Focus on the championship"),r:()=>roll(
+    [5,()=>L("Un año a lo tuyo, sin distracciones. Sin cambios.","A year doing your own thing, no distractions. No change.")],
+    [3,()=>(CAR(-.5),L("La fábrica se queja de tu falta de implicación. −0,5 coche","The factory complains about your lack of involvement. −0.5 car"))],
+    [2,()=>(VAL(1.04),L("La prensa valora que priorices la pista. +fama leve","The press values you putting the track first. slight +fame"))])}]);
+
+
+/* ───────────────────────────── 2 · RIVALIDADES ───────────────────────────── */
+/* estado: S.rival = {name, flag, since, lvl, heat, me, him, tone, mate, gone, seen:{}} · S.rivalHist = [cerradas] */
+function rvEnsureHist(){ S.rivalHist=S.rivalHist||[]; return S.rivalHist; }
+function rvN(){ return S.rival ? surname(S.rival.name) : ""; }
+function rvLvlOf(heat){ return heat>=9?3 : heat>=5?2 : heat>=2?1 : 0; }
+function rvScore(){ const r=S.rival; return r ? (r.me+"–"+r.him) : ""; }
+function rvMateNow(){ const r=S.rival, m=(typeof mateNow==="function")?mateNow():null; return !!(r && m && m.name===r.name); }
+function rvSetHeat(delta, row){
+  const r=S.rival; if(!r) return;
+  const antes=r.lvl;
+  r.heat=Math.max(0,Math.min(12,(r.heat||0)+delta)); r.lvl=rvLvlOf(r.heat);   // tope 12: así una tregua o dos años tranquilos sí pueden bajarla
+  r.maxLvl=Math.max(r.maxLvl||0, r.lvl);
+  if(r.lvl>=3){ S.feuds=S.feuds||[]; if(!S.feuds.some(f=>f.name===r.name)) S.feuds.push({name:r.name, year:yearNow(), rival:true}); }
+  else if(r.lvl<3 && antes>=3){ S.feuds=(S.feuds||[]).filter(f=>!(f.name===r.name && f.rival)); }
+  if(r.lvl>antes) rvAnuncia(r.lvl, row);
+}
+function rvAnuncia(lvl, row){
+  const n=rvN(); const dest=(row && row.events) || S.pendingEvents; if(!dest) return;
+  dest.push(lvl===1
+    ? L(`⚔️ Con ${n} la cosa se calienta: ya nadie habla de otra cosa en el paddock.`,`⚔️ Things are heating up with ${n}: nobody in the paddock talks about anything else.`)
+    : lvl===2
+    ? L(`⚔️ Guerra abierta con ${n}. Cada gesto, cada curva, cada declaración se lee en clave de duelo.`,`⚔️ Open war with ${n}. Every gesture, every corner, every statement is read as part of the duel.`)
+    : L(`⚔️ ${n} y tú ya sois enemigos declarados. El paddock toma partido.`,`⚔️ ${n} and you are now sworn enemies. The paddock takes sides.`));
+}
+function rivalOpen(row, x, standings, pos){
+  const me=standings.find(d=>d.isP);
+  S.rival={name:x.name, flag:(x.dref&&x.dref.flag)||"", since:row.year, lvl:1, heat:3, me:(me&&x.pts>me.pts)?0:1, him:(me&&x.pts>me.pts)?1:0,
+           tone:null, gone:0, seen:{}, team:x.team, maxLvl:1};
+  S.rival.mate=(x.team===(me&&me.team));
+  const rp=standings.indexOf(x)+1;
+  row.events.push(L(`⚔️ Nace una rivalidad: ${surname(x.name)}${S.rival.mate?" (tu compañero de garaje)":""}. Este año habéis acabado ${pos}º y ${rp}º, y los dos sabéis que el otro es la medida de lo que valéis.`,
+                    `⚔️ A rivalry is born: ${surname(x.name)}${S.rival.mate?" (your garage-mate)":""}. This year you finished ${pos}th and ${rp}th, and you both know the other is the yardstick for what you're worth.`));
+}
+function rivalClose(row, why, outcome){
+  const r=S.rival; if(!r) return;
+  rvEnsureHist().push({name:r.name, flag:r.flag, from:r.since, to:yearNow(), me:r.me, him:r.him, lvl:r.lvl, maxLvl:r.maxLvl||r.lvl, why:why, outcome:outcome||null});
+  S.feuds=(S.feuds||[]).filter(f=>!(f.name===r.name && f.rival));
+  S._rivalCool=yearNow()+2;
+  const n=surname(r.name), sc=r.me+"–"+r.him;
+  const msg = why==="tregua"
+    ? L(`🤝 La rivalidad con ${n} termina con un apretón de manos. Marcador final: ${sc}.`,`🤝 The rivalry with ${n} ends with a handshake. Final score: ${sc}.`)
+    : why==="ausente"
+    ? L(`👋 ${n} ya no está en la parrilla y la rivalidad se queda sin enemigo. Marcador final: ${sc}.`,`👋 ${n} is no longer on the grid and the rivalry is left without an opponent. Final score: ${sc}.`)
+    : L(`🧊 La rivalidad con ${n} se enfría: ya no os cruzáis lo suficiente para que haya duelo. Marcador final: ${sc}.`,`🧊 The rivalry with ${n} cools: you no longer cross paths enough to have a duel. Final score: ${sc}.`);
+  if(row && row.events) row.events.push(msg); else if(S.pendingEvents) S.pendingEvents.push(msg);
+  S.rival=null;
+}
+/* se llama al cerrar cada temporada de F1 (desde simF1). `standings` ya viene ordenada por puntos. */
+function rivalAfterSeason(row, standings, me, pos){
+  if(row.dnp || pos==null || !me) return;
+  const yr=row.year, rv=S.rival;
+  const byName=n=>standings.find(x=>!x.isP && x.name===n);
+  if(rv){
+    const e=byName(rv.name);
+    if(!e){ rv.gone=(rv.gone||0)+1; if(rv.gone>=2) rivalClose(row,"ausente"); return; }
+    rv.gone=0; rv.team=e.team;
+    const rp=standings.indexOf(e)+1, dp=Math.abs(rp-pos);
+    if(e.pts>me.pts) rv.him++; else rv.me++;
+    let h=0;
+    if(dp<=1) h+=2; else if(dp<=3) h+=1; else if(dp>=6) h-=1;
+    if(pos<=3 && rp<=3) h+=2;
+    if(e.team===me.team){ h+=1; rv.mate=true; } else rv.mate=false;
+    if(pos===1 || rp===1) h+=1;
+    if(dp>=2) h-=1;                         // la tensión se enfría sola si no os cruzáis; si seguís pegados, solo sube
+    rvSetHeat(h, row);
+    row.events.push(L(`⚔️ ${surname(e.name)}: acabáis ${pos}º (tú) y ${rp}º (él). Marcador de la rivalidad: ${rvScore()}.`,
+                      `⚔️ ${surname(e.name)}: you finish ${pos}th (you) and ${rp}th (him). Rivalry score: ${rvScore()}.`));
+    if(rv.heat<=0 && yr-rv.since>=2) rivalClose(row,"enfriada");
+    return;
+  }
+  if(S._rivalCool && yr<S._rivalCool) return;
+  if(pos>8) return;
+  const lead=Math.max(1,(standings[0]||{}).pts||1);
+  const feuds=S.feuds||[];
+  const cand=standings.filter(x=>!x.isP && x.name && x.name!=="J. Bianchi").map(x=>{
+    const rp=standings.indexOf(x)+1, dp=Math.abs(rp-pos), gap=Math.abs(x.pts-me.pts)/lead;
+    let w=(dp<=1?3:dp<=2?1.5:0)+(gap<.08?2:gap<.15?1:0)+(x.team===me.team?1.5:0)+((rp<=3&&pos<=3)?2:0)+(feuds.some(f=>f.name===x.name)?1.5:0);
+    return {x,w};
+  }).filter(c=>c.w>=3.5).sort((a,b)=>b.w-a.w);
+  if(cand.length && ch(.7)) rivalOpen(row, cand[0].x, standings, pos);
+}
+/* en pista, la tensión se nota: los dos rivales van un pelín más fuertes mientras dura el duelo */
+function rivalGridHook(grid, me){
+  const rv=S.rival; if(!rv || rv.lvl<2) return;
+  const e=grid.find(x=>!x.isP && x.name===rv.name); if(!e) return;
+  e.form+= rv.lvl>=3 ? .8 : .5;
+  me.form+= rv.lvl>=3 ? .6 : .4;
+}
+/* la etiqueta ⚔️ de la tarjeta del piloto */
+function rivalChip(){
+  const tags=document.querySelector("#driverCard .tags"); if(!tags) return;
+  let c=document.getElementById("tagRival");
+  const rv=(typeof S!=="undefined" && S && S.cat==="F1") ? S.rival : null;
+  if(!rv){ if(c) c.style.display="none"; return; }
+  if(!c){ c=document.createElement("span"); c.id="tagRival"; tags.appendChild(c); }
+  c.style.display="";
+  c.className="tag"+(rv.lvl>=2?" red":"");
+  c.textContent="⚔️ "+surname(rv.name)+" "+rv.me+"–"+rv.him;
+  c.title=[L("Rival","Rival"),L("tensión","tension")+" "+rv.lvl+"/3"].join(" · ");
+}
+/* y la frase del veredicto final */
+function rivalVeredicto(){
+  const all=(S.rivalHist||[]).slice(); if(S.rival) all.push({name:S.rival.name, from:S.rival.since, to:yearNow(), me:S.rival.me, him:S.rival.him, maxLvl:Math.max(S.rival.maxLvl||0,S.rival.lvl), why:null});
+  if(!all.length) return "";
+  all.sort((a,b)=>((b.maxLvl||0)-(a.maxLvl||0)) || ((b.me+b.him)-(a.me+a.him)));
+  const g=all[0]; if((g.me+g.him)<2) return "";
+  const n=surname(g.name), sc=g.me+"–"+g.him;
+  const final = g.why==="tregua"
+    ? L(" Acabasteis respetándoos."," You ended up respecting each other.")
+    : (g.maxLvl||0)>=3 ? L(" Fue una enemistad de las que se recuerdan."," It was the kind of feud that is remembered.") : "";
+  return L(` Y tu gran rival fue ${n}: ${sc} en los años que os cruzasteis.${final} ⚔️`, ` And your great rival was ${n}: ${sc} over the years you crossed paths.${final} ⚔️`);
+}
+/* envoltorio de refreshCard: tras repintar la tarjeta, repinta la etiqueta del rival */
+(function(){ const _rc=refreshCard; refreshCard=function(){ const r=_rc.apply(this,arguments); try{ rivalChip(); }catch(e){} return r; }; })();
+
+/* ─── los dilemas de rivalidad ─── */
+function RVD(id, cond, t, d, opts){
+  DILEMAS.push({ id:id, stage:"rival", nocount:true, noTag:false,
+    cond:()=> S.cat==="F1" && !!S.team && !!S.rival && (!cond || !!cond()),
+    t:t, d:d, opts:opts });
+}
+const rvTouch=()=>{ S._incRival=S.rival?S.rival.name:null; };
+
+RVD("rv_chispa", null,
+ ()=>L(`Se enciende la rivalidad`,`The rivalry ignites`),
+ ()=>L(`${rvN()} y tú lleváis un año tocándoos las narices en pista. La prensa ya habla del «duelo del año» y te preguntan si lo ves como una rivalidad o como una carrera más.`,
+       `${rvN()} and you have spent a year getting under each other's skin on track. The press already speaks of «the duel of the year» and asks whether you see it as a rivalry or just another race.`),
+ [{l:()=>L("Alimentar el duelo","Feed the duel"),r:()=>{ const rv=S.rival; if(!rv) return L("El asunto se enfría solo.","The matter cools by itself.");
+    rv.tone="fuego"; return roll(
+    [5,()=>(rvSetHeat(1),VAL(1.15),L("El paddock devora la historia: más foco y más ojos sobre ti. +fama, la tensión sube","The paddock devours the story: more focus and more eyes on you. +fame, tension rises"))],
+    [3,()=>(rvSetHeat(1),OVR(1),L("La rabia te motiva y entrenas como nunca. +1 OVR, la tensión sube","The anger motivates you and you train like never before. +1 OVR, tension rises"))],
+    [2,()=>(rvSetHeat(1),VAL(.95),L("Te pasas de frenada con los titulares. −fama leve, la tensión sube","You overdo the headlines. slight −fame, tension rises"))]); }},
+  {l:()=>L("Quitar hierro","Play it down"),r:()=>{ const rv=S.rival; if(!rv) return L("El asunto se enfría solo.","The matter cools by itself.");
+    rv.tone="respeto"; rvTouch(); return roll(
+    [5,()=>(respectBuild(),VAL(1.08),L("Tu elegancia gusta: el paddock te respeta aún más. +fama leve","Your poise goes down well: the paddock respects you even more. slight +fame"))],
+    [3,()=>L("La pregunta se olvida y la rivalidad sigue su camino. Sin cambios.","The question is forgotten and the rivalry carries on. No change.")],
+    [2,()=>(rvSetHeat(-1),L("Se baja el pistón y la tensión también. La tensión baja","The temperature drops and so does the tension. Tension falls"))]); }}]);
+
+RVD("rv_prensa", ()=>S.rival.lvl>=1,
+ ()=>L(`Guerra de declaraciones`,`War of words`),
+ ()=>L(`Una entrevista del entorno de ${rvN()} se interpreta en la prensa como un ataque hacia ti. Te piden respuesta y los periodistas ya han abierto la libreta.`,
+       `An interview from ${rvN()}'s camp is read in the press as an attack on you. They want your response and the journalists already have their notebooks open.`),
+ [{l:()=>L("Responder con dureza","Hit back hard"),r:()=>{ if(!S.rival) return L("Se queda en nada.","It comes to nothing."); rvTouch(); return roll(
+    [4,()=>(rvSetHeat(1),VAL(1.12),L("Tu respuesta es titular de portada. +fama, la tensión sube","Your reply is a front-page headline. +fame, tension rises"))],
+    [3,()=>(rvSetHeat(1),VAL(.9),L("Se te va la mano y te llaman fanfarrón. −fama, la tensión sube","You overdo it and they call you a loudmouth. −fame, tension rises"))],
+    [3,()=>(OVR(1),L("La rabia te sienta bien en pista. +1 OVR","The anger suits you on track. +1 OVR"))]); }},
+  {l:()=>L("No entrar al trapo","Refuse to be drawn in"),r:()=>{ if(!S.rival) return L("Se queda en nada.","It comes to nothing."); rvTouch(); return roll(
+    [5,()=>(VAL(1.06),respectBuild(),L("Tu serenidad gana puntos con el público. +fama leve","Your calm wins points with the public. slight +fame"))],
+    [3,()=>L("La polémica se apaga sola. Sin cambios.","The row dies down by itself. No change.")],
+    [2,()=>(VAL(.95),L("Hay quien lo lee como debilidad. −fama leve","Some read it as weakness. slight −fame"))]); }},
+  {l:()=>L("Responder con humor","Reply with humour"),r:()=>{ if(!S.rival) return L("Se queda en nada.","It comes to nothing."); return roll(
+    [4,()=>(VAL(1.15),L("Tu ingenio se hace viral. +fama","Your wit goes viral. +fame"))],
+    [3,()=>L("Se ríen contigo y se olvida. Sin cambios.","They laugh with you and it's forgotten. No change.")],
+    [3,()=>(VAL(.95),rvSetHeat(1),L("Se lo toman a burla y se enfada. −fama leve, la tensión sube","They take it as mockery and it gets nasty. slight −fame, tension rises"))]); }}]);
+
+RVD("rv_pista", ()=>S.rival.lvl>=1 && !!S.team,
+ ()=>L(`Duelo rueda con rueda`,`Wheel-to-wheel`),
+ ()=>L(`Últimas vueltas, ${rvN()} pegado a tu alerón. Hay posición en juego y los dos sabéis que se acabará decidiendo en la frenada.`,
+       `Final laps, ${rvN()} on your rear wing. A position is at stake and you both know it will be settled under braking.`),
+ [{l:()=>L("Cerrarle la puerta","Close the door"),r:()=>{ if(!S.rival) return L("Se diluye la pelea.","The fight fizzles out."); rvTouch(); return roll(
+    [4,()=>(dilAcreditar(2),rvSetHeat(1),L("Le cierras la puerta con limpieza y te llevas el duelo. Podio, la tensión sube","You close the door cleanly and win the duel. Podium, tension rises"))],
+    [3,()=>(feudBurn(),rvSetHeat(2),OVR(-1),L("Os tocáis: los dos perdéis. −1 OVR, la tensión se dispara","You touch: both of you lose. −1 OVR, tension spikes"))],
+    [3,()=>(VAL(.93),rvSetHeat(1),L("Los comisarios te sancionan por cerrar demasiado. −fama, la tensión sube","The stewards penalise you for closing too hard. −fame, tension rises"))]); }},
+  {l:()=>L("Dejarle pasar y devolvérsela después","Let him by and take it back later"),r:()=>{ if(!S.rival) return L("Se diluye la pelea.","The fight fizzles out."); rvTouch(); return roll(
+    [5,()=>(dilAcreditar(3),respectBuild(),VAL(1.05),L("Se la devuelves dos vueltas después. Podio y respeto mutuo","You pay him back two laps later. Podium and mutual respect"))],
+    [3,()=>(dilAcreditar(5),L("Pierdes un puesto, pero sumas puntos. Puntos","You lose a place but score points. Points"))],
+    [2,()=>(VAL(.95),L("No encuentras el momento de devolvérsela. −fama leve","You never find the moment to take it back. slight −fame"))]); }},
+  {l:()=>L("Jugártela por fuera","Gamble round the outside"),r:()=>{ if(!S.rival) return L("Se diluye la pelea.","The fight fizzles out."); rvTouch(); return roll(
+    [3,()=>(dilAcreditar(1),VAL(1.15),rvSetHeat(1),L("Adelantas al límite y ganas la carrera. ¡Victoria! +fama, la tensión sube","You pass on the limit and win the race. Victory! +fame, tension rises"))],
+    [4,()=>(feudBurn(),rvSetHeat(2),OVR(-1),L("Te sales al intentarlo y os llevas el susto juntos. −1 OVR, la tensión se dispara","You run wide trying it and share the scare. −1 OVR, tension spikes"))],
+    [3,()=>L("No hay hueco y te quedas con las ganas. Sin cambios.","There's no gap and you're left wanting. No change.")]); }}]);
+
+RVD("rv_garaje", ()=>rvMateNow(),
+ ()=>L(`Bajo el mismo techo`,`Under the same roof`),
+ ()=>L(`${rvN()} y tú compartís garaje y el ambiente se corta con cuchillo. Los ingenieros hablan en voz baja y el jefe te pide que bajéis la tensión.`,
+       `${rvN()} and you share a garage and the atmosphere could be cut with a knife. Engineers talk in whispers and the boss asks you both to cool things down.`),
+ [{l:()=>L("Exigir trato igual","Demand equal treatment"),r:()=>{ if(!S.rival) return L("Se calma el garaje.","The garage calms down."); return roll(
+    [4,()=>(CAR(.5),L("El equipo cumple: mismos recursos para los dos. +0,5 coche","The team delivers: same resources for both. +0.5 car"))],
+    [3,()=>(VAL(.95),L("Te ven como un problemático. −fama leve","They see you as a troublemaker. slight −fame"))],
+    [3,()=>L("Os dan la razón en palabras y poco más. Sin cambios.","They agree with you in words and little else. No change.")]); }},
+  {l:()=>L("Pactar una tregua con él","Strike a truce with him"),r:()=>{ if(!S.rival) return L("Se calma el garaje.","The garage calms down."); const n=rvN(); respectMate(); rvSetHeat(-6);
+    return L(`Os sentáis a hablar y salís con un pacto de caballeros con ${n}. La tensión baja`,`You sit down and come out with a gentlemen's agreement with ${n}. Tension falls`); }},
+  {l:()=>L("Marcar territorio","Mark your territory"),r:()=>{ if(!S.rival) return L("Se calma el garaje.","The garage calms down."); feudMate(); rvSetHeat(2); return roll(
+    [4,()=>(OVR(1),L("Te creces ante el reto de tenerlo al lado. +1 OVR, la tensión sube","You rise to the challenge of having him alongside. +1 OVR, tension rises"))],
+    [3,()=>(CAR(-.5),L("El equipo se parte en dos bandos. −0,5 coche, la tensión sube","The team splits into two camps. −0.5 car, tension rises"))],
+    [3,()=>(VAL(1.05),L("El paddock disfruta con la guerra civil. +fama leve, la tensión sube","The paddock enjoys the civil war. slight +fame, tension rises"))]); }}]);
+
+RVD("rv_juegos", ()=>S.rival.lvl>=2,
+ ()=>L(`Juegos mentales`,`Mind games`),
+ ()=>L(`Desde el entorno de ${rvN()} se filtra a la prensa que estás «en horas bajas» y que tu equipo ya negocia tu salida. Nadie sabe de dónde ha salido, pero huele a campaña.`,
+       `From ${rvN()}'s camp it's leaked to the press that you're «past it» and that your team is already negotiating your exit. Nobody knows where it came from, but it smells like a campaign.`),
+ [{l:()=>L("Devolver el golpe","Hit back"),r:()=>{ if(!S.rival) return L("Se disipa.","It dissipates."); rvTouch(); return roll(
+    [4,()=>(VAL(1.08),rvSetHeat(1),L("Contraatacas con datos y ganas el pulso mediático. +fama, la tensión sube","You counter with facts and win the media battle. +fame, tension rises"))],
+    [3,()=>(feudBurn(),VAL(.92),rvSetHeat(2),L("La guerra se ensucia y el paddock salpica a los dos. −fama, la tensión se dispara","The war gets dirty and the paddock splashes you both. −fame, tension spikes"))],
+    [3,()=>L("Todos se aburren de la historia. Sin cambios.","Everyone gets bored of the story. No change.")]); }},
+  {l:()=>L("Pedir al equipo que desmienta","Ask the team to deny it"),r:()=>{ if(!S.rival) return L("Se disipa.","It dissipates."); return roll(
+    [5,()=>(CAR(.3),L("El equipo cierra filas y la filtración se queda en nada. +0,3 coche","The team closes ranks and the leak comes to nothing. +0.3 car"))],
+    [3,()=>L("Lo desmienten sin mucha convicción. Sin cambios.","They deny it without much conviction. No change.")],
+    [2,()=>(VAL(.95),L("Su desmentido huele a confirmación. −fama leve","Their denial smells like confirmation. slight −fame"))]); }},
+  {l:()=>L("Ignorarlo y ganar en pista","Ignore it and win on track"),r:()=>{ if(!S.rival) return L("Se disipa.","It dissipates."); return roll(
+    [4,()=>(OVR(1),L("Tu mejor respuesta es el cronómetro. +1 OVR","Your best answer is the stopwatch. +1 OVR"))],
+    [4,()=>L("Tu calma desarma a quien lo filtró. Sin cambios.","Your calm disarms whoever leaked it. No change.")],
+    [2,()=>(VAL(.95),L("Callar se interpreta como confirmar. −fama leve","Silence is read as confirmation. slight −fame"))]); }}]);
+
+RVD("rv_tregua", ()=>S.rival.lvl>=2 && !rvMateNow(),
+ ()=>L(`La mano tendida`,`The outstretched hand`),
+ ()=>L(`Tras un fin de semana de nervios, ${rvN()} se te acerca en el paddock con la mano tendida. Puede ser sincero. O puede ser una jugada para la galería.`,
+       `After a nerve-wracking weekend, ${rvN()} walks up to you in the paddock with a hand outstretched. It might be sincere. Or it might be a play for the cameras.`),
+ [{l:()=>L("Estrechársela","Shake it"),r:()=>{ if(!S.rival) return L("Queda en un gesto.","It stays a gesture."); rvTouch(); respectBuild(); VAL(1.12); rivalClose(null,"tregua"); return L("Os dais la mano ante las cámaras. La rivalidad se sella con respeto. +fama","You shake hands in front of the cameras. The rivalry is sealed with respect. +fame"); }},
+  {l:()=>L("Rechazarla","Refuse it"),r:()=>{ if(!S.rival) return L("Queda en un gesto.","It stays a gesture."); rvTouch(); return roll(
+    [4,()=>(feudBurn(),rvSetHeat(2),VAL(1.05),L("Aguantas su mirada y el paddock toma nota. +fama leve, la tensión se dispara","You hold his gaze and the paddock takes note. slight +fame, tension spikes"))],
+    [3,()=>(feudBurn(),rvSetHeat(2),VAL(.93),L("Te llaman rencoroso. −fama, la tensión se dispara","They call you bitter. −fame, tension spikes"))],
+    [3,()=>(rvSetHeat(1),L("Os separáis sin hablar. La tensión sube","You part without speaking. Tension rises"))]); }}]);
+
+RVD("rv_decisivo", ()=>S.rival.lvl>=2 && ((S.seasons.at(-1)||{}).pos||99)<=3,
+ ()=>L(`El duelo decisivo`,`The decisive duel`),
+ ()=>L(`Quedan pocas carreras y entre ${rvN()} y tú os jugáis algo más que un puesto: el campeonato huele a pólvora y cada punto cuenta el doble.`,
+       `Few races remain and you and ${rvN()} are playing for more than a position: the championship smells of gunpowder and every point counts double.`),
+ [{l:()=>L("Todo o nada","All or nothing"),r:()=>{ if(!S.rival) return L("Todo queda en nada.","It all comes to nothing."); rvTouch(); S._titleTalk=yearNow(); return roll(
+    [4,()=>(dilAcreditar(1),VAL(1.12),rvSetHeat(1),L("Te lo juegas todo y sale: victoria en el momento clave. ¡Victoria! +fama","You risk everything and it works: a win at the key moment. Victory! +fame"))],
+    [3,()=>(feudBurn(),rvSetHeat(2),OVR(-1),L("Os toca otra vez, los dos acabáis fuera. −1 OVR, la tensión se dispara","You touch again and both end up out. −1 OVR, tension spikes"))],
+    [3,()=>(dilAcreditar(4),L("Te quedas corto de un suspiro y acabas en los puntos. Puntos","You fall a whisker short and end up in the points. Points"))]); }},
+  {l:()=>L("Jugar la regularidad","Play the percentages"),r:()=>{ if(!S.rival) return L("Todo queda en nada.","It all comes to nothing."); rvTouch(); S._titleTalk=yearNow(); return roll(
+    [5,()=>(dilAcreditar(2),L("Sumas siempre y dejas que se equivoque él. Podio","You score every time and let him make the mistakes. Podium"))],
+    [3,()=>(dilAcreditar(3),L("Acabas tercero y mantienes la pelea abierta. Podio","You finish third and keep the fight alive. Podium"))],
+    [2,()=>(VAL(.95),L("Tanta prudencia y se te escapa el duelo. −fama leve","So much caution and the duel slips away. slight −fame"))]); }},
+  {l:()=>L("Pedir una estrategia distinta a la suya","Ask for a different strategy from his"),r:()=>{ if(!S.rival) return L("Todo queda en nada.","It all comes to nothing."); S._titleTalk=yearNow(); return roll(
+    [4,()=>(CAR(.5),dilAcreditar(2),L("El muro acierta y os llevais el resultado. Podio, +0,5 coche","The pit wall gets it right and you take the result. Podium, +0.5 car"))],
+    [3,()=>L("La estrategia no marca diferencias. Sin cambios.","The strategy makes no difference. No change.")],
+    [3,()=>(VAL(.94),L("Os equivocáis de neumático y él lo aprovecha. −fama","You pick the wrong tyre and he makes the most of it. −fame"))]); }}]);
+
+/* ───────────────────────────── 3 · CUÁNDO SALE CADA COSA ───────────────────────────── */
+/* Lo llama pickDilemma antes del sorteo general. Como mucho UN dilema por año (lo garantiza `lastDilemmaAge`):
+   primero el suceso de época que antes caduca y, si no, el dilema de la rivalidad en curso. Nunca dos años
+   seguidos de sucesos de época salvo que a uno se le acabe la ventana este mismo año. */
+function eraEventPick(){
+  if(typeof S==="undefined" || !S || S.cat!=="F1" || !S.team) return null;
+  if(S.age-(S.lastDilemmaAge==null?-9:S.lastDilemmaAge)<1) return null;
+  const yr=yearNow();
+  const pool=DILEMAS.filter(d=>d.stage==="epoca" && !S.usedDilemmas[d.id] && dilAllowed(d.id) && d.cond());
+  if(pool.length && (S.age-(S._epocaAge==null?-9:S._epocaAge)>=2 || pool.some(d=>d.y[1]===yr))){
+    pool.sort(()=>Math.random()-.5);
+    pool.sort((a,b)=>a.y[1]-b.y[1]);                 // los que caducan antes, primero
+    for(const d of pool){ if(ch(d.prio||.6)){ S._epocaAge=S.age; return d; } }
+  }
+  const rv=rivalPick();
+  if(rv){ S._rivalAge=S.age; return rv; }
+  return null;
+}
+function rivalPick(){
+  const rv=S.rival; if(!rv) return null;
+  if(S.age-(S._rivalAge==null?-9:S._rivalAge)<1) return null;      // como mucho uno por temporada (y `lastDilemmaAge` ya impide dos el mismo año)
+  const seen=rv.seen=rv.seen||{};
+  const pool=DILEMAS.filter(d=>d.stage==="rival" && !seen[d.id] && d.cond());
+  if(!pool.length) return null;
+  const chispa=pool.find(d=>d.id==="rv_chispa");
+  const p = chispa ? .9 : rv.lvl>=3 ? .85 : rv.lvl===2 ? .75 : .6;   // una rivalidad dura poco: si no se vive pronto, no se vive
+  if(!ch(p)) return null;
+  const d = chispa || pool[irnd(0,pool.length-1)];
+  seen[d.id]=yearNow();
+  return d;
+}
+
+</script>
 <!-- 🛠️ MOD MENU · media fija. Botón translúcido arriba a la izquierda. Apagado por defecto: el juego no cambia. -->
 <style>
 #modBtn{position:fixed;top:12px;left:12px;z-index:65;width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
