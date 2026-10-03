@@ -825,6 +825,7 @@ img.tlogo.mb{width:20px;height:20px;border:none}
    que se suponía. Con DOS idiomas dice «EN» y cabía; en cuanto hay tres o más pasa a «🌐 ES», crece
    28px y los botones se comían el uno al otro (medido: hueco de −3px). Lo cazó Carlos en pantalla.
    Con flex + gap, el hueco está garantizado diga lo que diga el botón. */
+#betaBar{display:none!important}   /* versión personal: sin cinta de «Modo Team Principal en pruebas» */
 #betaBar{position:fixed;top:0;left:0;right:0;z-index:70;background:#15151e;color:#ffce3a;
   font:600 12px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   padding:7px 14px;text-align:center}
@@ -24473,7 +24474,10 @@ function advLadderSim(row){
   const edge = mine - tier.perf;
   const spread = Math.max(.6, 4 - Math.max(0,edge)*.25);
   let champPos = Math.max(1, Math.min(18, Math.round(1 + Math.max(0,-edge)*.6 + rnd(0,spread))));
-  const marqueeWin = tier.marquee && ch(Math.max(.02,Math.min(.5,.06+edge*.03)));
+  let marqueeWin = tier.marquee && ch(Math.max(.02,Math.min(.5,.06+edge*.03)));
+  /* 🏁 si jugaste (o simulaste) el fin de semana de la carrera joya —Indy 500, Le Mans, Montecarlo, Daytona, Bathurst…—, su resultado MANDA:
+     ganarla en la pista es ganarla en el resumen, y quedar 8º no se convierte en victoria por un dado distinto */
+  try{ const _mw=(typeof wkMythicWin==="function")?wkMythicWin(key):null; if(_mw!=null) marqueeWin=!!(tier.marquee && _mw); }catch(e){}
   if(marqueeWin) champPos = Math.min(champPos, ch(.55)?1:irnd(2,4));
   const tierLab=advTierLab(lad,i);
   const top=!!(tier.overall||i>=3);
@@ -25502,7 +25506,7 @@ function wkLights(box,cb){
   T(on,300);
 }function wkCarLine(R){
   const s=wkSit(R), tl={top:L("de los mejores de la parrilla","among the best on the grid"),mid:L("de la zona media","midfield"),back:L("de los más lentos","among the slowest")}[s.tier];
-  return `<div style="font-size:12px;opacity:.85;margin:2px 0">🚗 ${L("Tu coche","Your car")}: <b>${s.carRank}º ${L("de","of")} ${s.n}</b> (${tl}) · ${L("tu nivel pide el","your level points to")} <b>${s.exp}º</b></div>`;
+  return `<div style="font-size:12px;opacity:.85;margin:2px 0">🚗 ${L("Tu coche","Your car")}: <b>${s.carRank}º ${L("de","of")} ${s.n}</b> (${tl}) · ${L("las simulaciones te ponían el","the simulations had you at")} <b>${s.exp}º</b></div>`;
 }
 function wkCardShell(R,box){ if(R._shell && box.querySelector("#wkInfo") && box.querySelector(".wk-card")) return; box.innerHTML=`<div id="wkInfo"></div>${wkCardHTML(R)}`; R._shell=true; R._pp=null; R._df=null; }
 function wkRaceUI(ctx,grid,done){
@@ -25533,7 +25537,7 @@ function wkRaceUI(ctx,grid,done){
     const res=wkRaceRes(R);
     const txt = res.dnf ? L("💥 No ves la bandera a cuadros.","💥 You don't see the chequered flag.")
       : res.finish===1 ? L("🏆 ¡VICTORIA!","🏆 VICTORY!") : res.finish<=3 ? L(`🥇🥈🥉 ¡Podio! Terminas ${res.finish}º.`,`🥇🥈🥉 Podium! You finish P${res.finish}.`) : L(`Terminas ${res.finish}º.`,`You finish P${res.finish}.`);
-    setDecision(`🏁 ${ctx.venue} · ${L("Resultado","Result")}`, (R.fam==="rally"?L(`Salías en el puesto ${res.grid}º del orden de salida · tu nivel y coche pedían el ${res.exp}º.`,`You started ${res.grid}th on the road order · your level and car pointed to P${res.exp}.`):L(`Salías ${res.grid}º · tu nivel y coche pedían el ${res.exp}º.`,`You started P${res.grid} · your level and car pointed to P${res.exp}.`)));
+    setDecision(`🏁 ${ctx.venue} · ${L("Resultado","Result")}`, (R.fam==="rally"?L(`Salías en el puesto ${res.grid}º del orden de salida · las simulaciones te ponían ${res.exp}º.`,`You started ${res.grid}th on the road order · the simulations had you at P${res.exp}.`):L(`Salías ${res.grid}º · las simulaciones te ponían ${res.exp}º.`,`You started P${res.grid} · the simulations had you at P${res.exp}.`)));
     wkCardShell(R,box);
     box.querySelector("#wkInfo").innerHTML=`<div class="wk-note"><b>${txt}</b> ${note}</div>${wkPodioHTML(R)}`;
     wkCardUpdate(R,box,R.nseg);
@@ -25570,14 +25574,21 @@ function wkMain(cont){
   S._wkYear=yearNow(); S._wkRes=[]; S._wkSedes=null; S._wkF=null; window.__wkCont=()=>{ cont(); };
   const fin=()=>{
     wkBoxOff();
-    const rs=S._wkRes, tot=rs.reduce((a,r)=>a+Math.max(-1,Math.min(1,(r.dnf?-(r.n/3):(r.exp-r.finish))/6)),0);
-    S._wkBonus=Math.round(Math.max(-2,Math.min(2,tot)));
+    /* el fin de semana pesa en el campeonato: lo hecho frente a lo esperado (60 %) y lo hecho en absoluto (40 %), hasta ±6 OVR de forma esa temporada */
+    const rs=S._wkRes, tot=rs.reduce((a,r)=>{ const n=Math.max(4,r.n||20); const rel=r.dnf?-1:Math.max(-1,Math.min(1,(r.exp-r.finish)/Math.max(3,n*.3))), abs=r.dnf?-1:Math.max(-1,Math.min(1,(n/2-r.finish)/(n/2))); return a+.6*rel+.4*abs; },0);
+    S._wkBonus=Math.round(Math.max(-6,Math.min(6,tot*3.5))*10)/10;
     S.wkStats=S.wkStats||{n:0,poles:0,wins:0,pods:0};
     rs.forEach(r=>{ S.wkStats.n++; if(r.pole) S.wkStats.poles++; if(r.win) S.wkStats.wins++; if(!r.dnf&&r.finish<=3) S.wkStats.pods++; if(r.win) VAL(1.02); });
     window.__wkCont=null; cont();
   };
   const _sl=(typeof wkSlot==="function")?wkSlot:((n,cb)=>cb());
   _sl(1,()=>wkFinde(1,r1=>{ (S._wkRes=S._wkRes||[]).push(r1); _sl(2,()=>wkFinde(2,r2=>{ (S._wkRes=S._wkRes||[]).push(r2); fin(); })); }));
+}
+/* ¿ganaste la carrera joya (Indy 500, Le Mans, Montecarlo, Daytona, Bathurst…) en el fin de semana? true/false, o null si no se corrió */
+function wkMythicWin(key){
+  const RX={indy:/indian|500 mill/,lemans:/le mans/,wrc:/monte/,nascar:/daytona 500/,supercars:/bathurst/,dakar:/semana 2|week 2/};
+  const rx=RX[key]; if(!rx || !S._wkRes) return null;
+  const r=S._wkRes.find(x=>rx.test(wkNorm(x.venue))); return r?!!r.win:null;
 }
 function wkResumen(rs,bonus){
   const f=r=>`${r.venue}: ${L("salida","grid")} ${r.grid}º → ${r.dnf?L("abandono","DNF"):r.finish+"º"}${r.pole?" 🟪":""}${r.win?" 🏆":""}`;
@@ -25600,7 +25611,12 @@ function wkResumen(rs,bonus){
     let r;
     try{ r=_ss.apply(this,arguments); }
     finally{ if(b) S.ovr-=b; }
-    try{ if(rs && rs.length){ const row=S.seasons.at(-1); if(row && !row.wk){ row.wk=rs; row.events.unshift(wkResumen(rs,b)); } } }catch(e){}
+    try{ if(rs && rs.length){ const row=S.seasons.at(-1); if(row && !row.wk){ row.wk=rs; row.events.unshift(wkResumen(rs,b));
+      /* lo que pasó en la pista cuenta en la tarjeta: una victoria o un podio de un fin de semana jugado no se pueden perder en el resumen */
+      const wW=rs.filter(r=>r.win).length, wP=rs.filter(r=>!r.dnf&&r.finish<=3).length, wPo=rs.filter(r=>r.pole).length;
+      const fix=(f,add,tot)=>{ if(typeof row[f]==="number" && row[f]<add){ const d=add-row[f]; row[f]=add; if(tot && typeof S[tot]==="number") S[tot]+=d; } };
+      fix("wins",wW,"wins"); fix("pods",Math.max(wP,wW),"podiums"); fix("poles",wPo,"poles");
+    } } }catch(e){}
     S._wkRes=null;
     return r;
   };
@@ -26690,18 +26706,22 @@ function svMeta(){
 function svGuardar(i){
   if(!svPuede()){ svToast(L("Solo se puede guardar en el invierno: cuando ves las ofertas del próximo año.","You can only save in the winter: when you're looking at next year's offers.")); return false; }
   try{
-    const root={S, F1:F1_TEAMS, F4:F4_TEAMS, F3:F3_TEAMS, FR:FRECA_TEAMS, F2:F2_TEAMS, KART:KART_TEAMS, JR:JUNIOR_OF, BADGE:SPONSOR_BADGE,
-                sel:{name:sel.name,num:sel.num,country:sel.country,flag:sel.flag,style:sel.style}, era:SELECTED_ERA, tp:!!TP_MODE, v:2};
-    const json=JSON.stringify(svEnc(root));
+    /* LA FOTO DEL INVIERNO: el estado EXACTO justo antes de que se calculara este invierno (nextOffers), con la semilla del azar con la que se calculó.
+       Al cargar se vuelve a calcular con la misma semilla: misma media, mismas ofertas, mismo historial. */
+    const pre=window.__svPre;
+    if(!pre || pre.y!==yearNow()){ svToast(L("Aún no hay foto de este invierno. Pulsa «Continuar» y vuelve a intentarlo en la pantalla de ofertas.","No snapshot for this winter yet. Continue and try again at the offers screen.")); return false; }
+    const json='{"seed":'+pre.seed+',"g":'+pre.json+'}';
     localStorage.setItem(SV_KEY(i),json); localStorage.setItem(SV_META(i),JSON.stringify(svMeta()));
     svToast(L("💾 Partida guardada en la ranura ","💾 Game saved in slot ")+(i+1)+" ("+Math.round(json.length/1024)+" KB)");
     return true;
   }catch(e){ svToast(L("No se pudo guardar (¿almacenamiento lleno?)","Couldn't save (storage full?)")); try{ track("save_error",{msg:String((e&&e.message)||e).slice(0,80)}); }catch(_){} return false; }
 }
+function svRoot(){ return {S, F1:F1_TEAMS, F4:F4_TEAMS, F3:F3_TEAMS, FR:FRECA_TEAMS, F2:F2_TEAMS, KART:KART_TEAMS, JR:JUNIOR_OF, BADGE:SPONSOR_BADGE,
+    sel:{name:sel.name,num:sel.num,country:sel.country,flag:sel.flag,style:sel.style}, era:SELECTED_ERA, tp:!!TP_MODE, v:3}; }
 function svInPlace(dst,src){ dst.length=0; (src||[]).forEach(x=>dst.push(x)); }
 function svCargar(i){
-  let g;
-  try{ const raw=localStorage.getItem(SV_KEY(i)); if(!raw) return false; g=svDec(JSON.parse(raw)); }catch(e){ svToast(L("La ranura está dañada.","This slot is damaged.")); return false; }
+  let g, seed=null;
+  try{ const raw=localStorage.getItem(SV_KEY(i)); if(!raw) return false; const pj=JSON.parse(raw); seed=(pj&&pj.g)?pj.seed:null; g=svDec(pj&&pj.g?pj.g:pj); window.__svPre={json:JSON.stringify(pj&&pj.g?pj.g:pj), seed:seed, y:null}; }catch(e){ svToast(L("La ranura está dañada.","This slot is damaged.")); return false; }
   try{
     SELECTED_ERA=g.era||"2026"; TP_MODE=!!g.tp; CHALLENGE=null;
     Object.assign(sel,g.sel||{});
@@ -26715,8 +26735,10 @@ function svCargar(i){
     $("intro").style.display="none"; $("identity").style.display="none"; $("career").style.display="block";
     try{ $("tagNum").textContent="#"+sel.num; $("tagStyle").textContent=styleLabel(sel.style); }catch(e){}
     const dm=document.getElementById("modal"); if(dm && dm.classList) dm.classList.remove("show");
-    try{ if(S.cat==="TP" && typeof tpRefreshCard==="function") tpRefreshCard(); else refreshCard(); }catch(e){}
-    S._ph="winter";
+    try{ if(window.__svPre) window.__svPre.y=yearNow(); }catch(e){}
+    try{ pintaColorEquipo(S.team); }catch(e){}
+    ["refreshCard","renderF1State","renderTimeline","renderRecap","renderCareerMap"].forEach(f=>{ try{ if(S.cat==="TP" && f==="refreshCard" && typeof tpRefreshCard==="function") tpRefreshCard(); else if(typeof window[f]==="function") window[f](); }catch(e){} });
+    S._ph="winter"; window.__svForceSeed=seed;
     svPanelOff();
     setTimeout(()=>{ try{ nextOffers(); }catch(e){ try{ track("load_error",{msg:String((e&&e.message)||e).slice(0,80)}); }catch(_){} } }, 30);
     svToast(L("📂 Partida cargada: ","📂 Game loaded: ")+(sel.name||"")+" · "+yearNow());
@@ -26773,7 +26795,19 @@ function svHomeRender(){
 /* ─── fases: «invierno» = pantalla de ofertas/decisiones entre temporadas ─── */
 (function(){
   const _no=nextOffers;
-  nextOffers=function(){ try{ if(S) S._ph="winter"; }catch(e){} return _no.apply(this,arguments); };
+  const mul=a=>function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+  nextOffers=function(){
+    let seed=null, orig=null;
+    try{
+      if(S && !S.retired){ S._ph="winter";
+        seed=(window.__svForceSeed!=null)?window.__svForceSeed:((Math.random()*2147483647)>>>0); window.__svForceSeed=null;
+        if(svActiva() && !(S.cat==="TP" && false)){ window.__svPre={json:JSON.stringify(svEnc(svRoot())), seed, y:yearNow()}; }
+        orig=Math.random; Math.random=mul(seed);
+      }
+    }catch(e){}
+    try{ return _no.apply(this,arguments); }
+    finally{ if(orig) Math.random=orig; }
+  };
   const _sc=signContract;
   signContract=function(){ try{ if(S) S._ph="busy"; }catch(e){} return _sc.apply(this,arguments); };
   const _ss=startSeasonRun;
