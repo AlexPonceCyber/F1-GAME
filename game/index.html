@@ -5821,7 +5821,7 @@ function startCareer(){
     bigInjuryDone:false, feuds:[], respects:[], _incRival:null, fiaTitleCount:0, fiaTitlePending:null, _fiaSc:null,
     pendingEvents:[], missRaces:0, crashRace:null, dnpSeason:false, pendMiss:0, forceMove:false, apxShown:false,
     baseYear:ERA.baseYear, era:ERA.id, legends:ERA.legends, expansion:ERA.expansion,
-    seats:{}, dpool:[], rookies:[...ERA.rookies], crossovers:ERA.crossovers.map(c=>({...c})), burned:{}, neverHire:{}, poachTeam:null, mySeatTeam:null,
+    seats:{}, dpool:[], rookies:[...ERA.rookies, ...((typeof REAL_ROOKIES!=="undefined" && REAL_ROOKIES[ERA.id]) || []).map(r=>r.slice())], crossovers:ERA.crossovers.map(c=>({...c})), burned:{}, neverHire:{}, poachTeam:null, mySeatTeam:null,
     palm:{}, gigTeam:null, gigResucitado:null, gigDesde:null, gigFuga:null, llegadaExp:{}, gigOfrecidos:[],   // 🛌 palmarés vivo + el pacto del gigante dormido
     dilPod:0,              // 🥉 podios ganados en un dilema, a sumar al cerrar la temporada
     dilPts:0,              // 🏁 puntos ganados en un dilema (2º y del 4º al 10º), a sumar al cerrar la temporada
@@ -6169,6 +6169,7 @@ function mkRookie(noCross, forTeam){
       }
       if(pick){
         S.arrivals.splice(S.arrivals.indexOf(pick),1);
+        S.jrPool=(S.jrPool||[]).filter(p=>p.n!==pick.n);   // debuta en la F1: deja la cantera
         const age=Math.max(17, yr-pick.b);
         const rc=Math.round(Math.max(78, Math.min(97, pick.c+gauss()*3)));  // techo variable por partida
         const skill=pick.sk!=null ? pick.sk
@@ -6213,6 +6214,7 @@ function mkRookie(noCross, forTeam){
   const _avail=S.rookies.map((r,i)=>i).filter(i=>{
     const r=S.rookies[i];
     if(r[2] && _yr<r[2]) return false;           // aún no le toca
+    if(r[5]===1 && r[3] && (_yr-r[3])<19) return false;   // 🎓 los reales de la lista larga (REAL_ROOKIES) sirven de cantera desde los 14, pero no debutan en la F1 de críos
     if(r[3] && (_yr-r[3])>34) return false;      // ya se le pasó el arroz
     /* 🐂 y el asiento del FILIAL solo bebe promesas: con los años de nacimiento reales, un nombre del
        bote podía «debutar» en Racing Bulls con 30+ — era el agujero que dejaba treintañeros en la
@@ -6270,8 +6272,8 @@ function mkRookie(noCross, forTeam){
     // 🇬🇧🇮🇳 con el tirón de cantera activo, el bote se estrecha a los apellidos de ese país (si quedan)
     const _bote = _pais && GEN_NAMES.some(x=>x[1]===_pais && _libre(x[0]))
                 ? GEN_NAMES.filter(x=>x[1]===_pais) : GEN_NAMES;
-    do{ g=_bote[irnd(0,_bote.length-1)];
-        _n = /\.\s/.test(g[0]) ? g[0] : GEN_INITIALS[irnd(0,GEN_INITIALS.length-1)]+". "+g[0];
+    do{ g=(_bote===GEN_NAMES ? genPick(_bote) : _bote[irnd(0,_bote.length-1)]);
+        _n = /\.\s/.test(g[0]) ? g[0] : genIni(g[1])+". "+g[0];
     } while(++_i2<24 && (S.dpool.some(d=>d && d.name===_n) || !_libre(g[0])));
     _ap[g[0]]=true;
     name=_n; flag=g[1]; }
@@ -10505,7 +10507,7 @@ function maletinPiloto(){
     const bote=libres.length ? libres : GEN_NAMES.filter(g=>MALETIN_PAIS[g[1]]);
     const g=bote[irnd(0,bote.length-1)];
     _ap[g[0]]=true;
-    const n=/\.\s/.test(g[0]) ? g[0] : GEN_INITIALS[irnd(0,GEN_INITIALS.length-1)]+". "+g[0];
+    const n=/\.\s/.test(g[0]) ? g[0] : genIni(g[1])+". "+g[0];
     return {n, f:g[1]};
   });
 }
@@ -23936,15 +23938,30 @@ function catEtiqueta(){ if(S.cat==="ADV" && typeof advLadderOn==="function" && a
 function catNombreNuevo(edad, flagDeseada){
   const yr=yearNow();
   const usado=n=>(S.dpool||[]).some(d=>d&&d.name===n)||(S.jrPool||[]).some(p=>p.n===n)||(S.jrOtros||[]).some(p=>p.n===n);
+  /* 🌟 LOS FUTUROS DE LA F1 COMPITEN CONTIGO. Los pilotos de las llegadas históricas (Alonso en 1990, Hamilton en 2000, Stroll en 2010…)
+     no esperan en casa a su año de debut: están en el karting, la F4, la F3 y la F2 de su edad, y los ves en el podio de cada peldaño.
+     Los más grandes (techo 90+) salen con prioridad. Siguen debutando en la F1 en su año real (mkRookie los saca de la cantera). */
+  if(S.arrivals && S.arrivals.length){
+    const au=S._arrUsed=S._arrUsed||{};
+    const arr=S.arrivals.filter(a=>a.b && a.y>yr && !au[a.n] && Math.abs((yr-a.b)-edad)<=1 && !usado(a.n));
+    if(arr.length){
+      const est=arr.filter(a=>(a.c||0)>=90);
+      const pool=est.length&&ch(.6)?est:arr;
+      if(ch(est.length?.55:.3)){
+        const a=pool[irnd(0,pool.length-1)]; au[a.n]=true;
+        return {n:a.n, f:a.f, b:a.b, tech:Math.min(96,Math.max(84,Math.round(a.c||86))), arr:true, ay:a.y};
+      }
+    }
+  }
   const cand=(S.rookies||[]).filter(r=>(!r[2]||yr>=r[2]) && (r[3] ? Math.abs((yr-r[3])-edad)<=1 : true) && !usado(r[0]));
-  if(cand.length && ch(.55)){
+  if(cand.length && ch(S.era!=="2026" && S.era!=="2025" ? .85 : .55)){   // en las épocas retro casi todos los nombres de la cantera son reales
     const r=cand[irnd(0,cand.length-1)]; S.rookies.splice(S.rookies.indexOf(r),1);
     return {n:r[0], f:r[1], b:r[3]||(yr-edad), tech:r[4]||null};
   }
   const ap=S._genApe=S._genApe||{};
   let g,nom,k=0;
-  do{ g=GEN_NAMES[irnd(0,GEN_NAMES.length-1)];
-      nom=/\.\s/.test(g[0]) ? g[0] : GEN_INITIALS[irnd(0,GEN_INITIALS.length-1)]+". "+g[0];
+  do{ g=genPick(GEN_NAMES);
+      nom=/\.\s/.test(g[0]) ? g[0] : genIni(g[1])+". "+g[0];
   }while(++k<30 && (usado(nom) || ap[g[0]] || (S.dpool||[]).some(d=>d&&d.name&&surname(d.name)===g[0])));
   ap[g[0]]=true;
   return {n:nom, f:g[1], b:yr-edad, tech:null};
@@ -23953,7 +23970,7 @@ function catNueva(idx){
   const [a,z]=CAT_EDAD[idx]; const edad=irnd(a+1,z-1);
   const nm=catNombreNuevo(edad);
   const lv=Math.max(.12,Math.min(1,.5+gauss()*.22+(nm.tech?(nm.tech-84)/45:0)));
-  return {n:nm.n, f:nm.f, b:nm.b, lv:lv, c:idx, y:yearNow()};
+  return {n:nm.n, f:nm.f, b:nm.b, lv:lv, c:idx, y:yearNow(), arr:nm.arr||undefined, ay:nm.ay};
 }
 
 /* ─── podio de una categoría de monoplazas / karting ─── */
@@ -24091,7 +24108,7 @@ function catPodioAfter(row){
 function jrStarTake(noCross, forTeam){
   if(!catSistemaOn() || !S.jrPool) return null;
   const yr=yearNow();
-  const ok=S.jrPool.filter(p=>p.c===4 && (p.rdy||0)<=yr && (yr-p.b)>=18 && (!noCross || (yr-p.b)<=EDAD_CANTERA)
+  const ok=S.jrPool.filter(p=>p.c===4 && (p.rdy||0)<=yr && (!p.arr || yr>=p.ay-1) && (yr-p.b)>=18 && (!noCross || (yr-p.b)<=EDAD_CANTERA)
                            && !(S.dpool||[]).some(d=>d&&d.name===p.n));
   if(!ok.length || !ch(.55)) return null;
   ok.forEach(p=>{ p._r=p.lv+gauss()*.12; }); ok.sort((x,y)=>y._r-x._r);   // (el comparador aleatorio de antes no era consistente)
@@ -24801,7 +24818,7 @@ function wkSedes(fam){
 
 /* ─── la parrilla: pilotos, equipos y su nivel ─── */
 function wkNom(used){
-  let n,k=0; do{ const g=GEN_NAMES[irnd(0,GEN_NAMES.length-1)]; n={n:(/\.\s/.test(g[0])?g[0]:GEN_INITIALS[irnd(0,GEN_INITIALS.length-1)]+". "+g[0]), f:g[1]}; }while(used.has(n.n) && ++k<40);
+  let n,k=0; do{ const g=genPick(GEN_NAMES); n={n:(/\.\s/.test(g[0])?g[0]:genIni(g[1])+". "+g[0]), f:g[1]}; }while(used.has(n.n) && ++k<40);
   used.add(n.n); return n;
 }
 function wkSig(){ return S.cat+":"+(S.advSeries||"")+":"+(S.advTier||0)+":"+(S.team&&S.team.name); }
@@ -24809,22 +24826,23 @@ function wkCampo(fam,cfg){
   if(S._wkF && S._wkF.y===yearNow() && S._wkF.sig===wkSig()) return S._wkF.cars;
   const cars=wkBuild(fam,cfg); S._wkF={y:yearNow(), sig:wkSig(), cars}; return cars;
 }
+const WK_MAXCARS=26, WK_SQUEEZE=.85, WK_EASE=1.4;   // tope de coches · compresión del nivel de la parrilla · ayuda al jugador (puntos de ritmo)
 function wkBuild(fam,cfg){
   const cars=[], used=new Set([sel.name]), meT=S.team||{};
   const add=(name,f,tm,col,skill,car)=>{ used.add(name); cars.push({id:cars.length, name, f, tm, col:col||"#888", skill, car, me:false}); };
-  let meCar=meT.perf||70, shift=0;
+  let meCar=meT.perf||70, shift=0, WS=.55;
   const c=S.cat, k=S.advSeries;
   if(c==="F1"){
     F1_TEAMS.forEach(t=>{ (S.seats[t.name]||[]).forEach(d=>{ if(d && d!=="PLAYER") add(d.name,d.flag,t.name,t.color,d.skill,S.f1perf[t.name]??t.perf); }); });
-    meCar=S.f1perf[meT.name]??meT.perf??80;
+    meCar=S.f1perf[meT.name]??meT.perf??80; WS=drvW(yearNow());   /* el reparto piloto/coche de la época, igual que en la temporada */
   } else if(CAT_IDX[c]!=null){
     const idx=CAT_IDX[c], pool=({KART:KART_TEAMS,F4:F4_TEAMS,F3:F3_TEAMS,FR:FRECA_TEAMS,F2:F2_TEAMS})[c];
-    const rg=({KART:[48,68],F4:[58,74],F3:[64,80],FR:[63,79],F2:[70,86]})[c];
+    const fF=fieldFor(c)||{mean:60,spread:6,teamW:.35}; WS=1-fF.teamW;   /* el MISMO campo que simula la temporada: media, dispersión y peso del coche */
     const jr=(S.jrPool||[]).filter(p=>p.c===idx);
     for(let i=0;i<19;i++){
       const p=jr[i]; const nm=p?{n:p.n,f:p.f}:wkNom(used); const lv=p?p.lv:Math.max(.1,Math.min(1,.5+gauss()*.22));
       const t=pool[i%pool.length];
-      add(nm.n,nm.f,t.name,t.color,rg[0]+lv*(rg[1]-rg[0]),(S.jrPerf[t.name]??t.perf));
+      add(nm.n,nm.f,t.name,t.color,fF.mean+(lv-.5)*fF.spread*4.4,(S.jrPerf[t.name]??t.perf));
     }
     meCar=(S.jrPerf[meT.name]??meT.perf??50);
     const ms=cars.reduce((a,x)=>a+x.skill,0)/cars.length, mc=cars.reduce((a,x)=>a+x.car,0)/cars.length;
@@ -24853,19 +24871,26 @@ function wkBuild(fam,cfg){
     }
   }
   cars.push({id:cars.length, name:(typeof pName==="function"?pName():sel.name), f:sel.flag, tm:meT.name||"—", col:meT.color||"#e10600", skill:S.ovr, car:meCar, me:true});
-  cars.forEach(x=>{ x.car+=shift; x.pace=.55*x.skill+.45*x.car; });
+  cars.forEach(x=>{ x.car+=shift; });
+  /* la parrilla nunca pasa de 26 coches (13 equipos) y no repite nombres */
+  { const seen=new Set(); for(let i=cars.length-1;i>=0;i--){ const x=cars[i]; if(x.me) continue; if(seen.has(x.name)||x.name===sel.name){ cars.splice(i,1); } else seen.add(x.name); }
+    while(cars.length>WK_MAXCARS){ let wi=-1, wp=1e9; cars.forEach((x,i)=>{ if(!x.me && x.pace<wp){ wp=x.pace; wi=i; } }); if(wi<0) break; cars.splice(wi,1); }
+    cars.forEach((x,i)=>{ x.id=i; });
+    /* el nivel de la parrilla se comprime hacia el medio para que tu puesto sea coherente con el de la temporada */
+    const ms2=cars.reduce((a,x)=>a+x.skill,0)/cars.length, mc2=cars.reduce((a,x)=>a+x.car,0)/cars.length;
+    cars.forEach(x=>{ x.skill=ms2+(x.skill-ms2)*WK_SQUEEZE; x.car=mc2+(x.car-mc2)*WK_SQUEEZE; x.pace=WS*x.skill+(1-WS)*x.car; }); cars.cw=1-WS; }
   const ord=cars.slice().sort((a,b)=>b.pace-a.pace); cars.forEach(x=>{ x.exp=ord.indexOf(x)+1; });
   return cars;
 }
 
 /* ─── clasificación: la vuelta ─── */
-const WK_W=[.70,.35,.55];
+const WK_D=[.17,-.18,.02];   /* cuánto más (o menos) pesa el coche en cada sector respecto al peso medio */
 function wkLap(c,n,ctx,si){
   const base=ctx.cfg.lap, evo=1-0.0012*(si||0)-0.0018*n;
-  const q=gauss()*0.0022;
+  const q=gauss()*(c.me?0.0013:0.0022);   // el jugador tiene menos mala suerte en la clasificación
   const s=[0,1,2].map(i=>{
-    const sp=WK_W[i]*c.car+(1-WK_W[i])*c.skill;
-    return base[i]*evo*(1+(100-sp)*0.0011+q+gauss()*0.0012);
+    const cw=Math.max(.1,Math.min(.9,(ctx.cw==null?.45:ctx.cw)+WK_D[i])), sp=cw*c.car+(1-cw)*c.skill+(c.me?WK_EASE:0);
+    return base[i]*evo*(1+(100-sp)*0.0011+q+gauss()*(c.me?0.0008:0.0012));
   });
   return {s, t:s[0]+s[1]+s[2]};
 }
@@ -25227,7 +25252,7 @@ function wkStintSeg(){
 function wkPitSeg(fam,R){
   const rally=fam==="rally", s=R?wkSit(R):null;
   const lid=s&&s.mp===1;
-  return {t:[rally?"Parque de asistencia":"Ventana de paradas", rally?"Service park":"Pit window"], auto:R2=>R2.me.tyre<62?0:1,
+  return {t:[rally?"Parque de asistencia":"Ventana de paradas", rally?"Service park":"Pit window"], auto:R2=>R2.me.tyre<85?0:1,
     d:rally?["Tienes media hora de asistencia: neumáticos, frenos y ajustes. Cada minuto cuenta.","You get a half-hour service: tyres, brakes and set-up. Every minute counts."]
            :lid?["Vas primero y se abre la ventana de boxes: parar te da gomas frescas pero te expone a perder la cabeza.","You lead and the pit window opens: stopping brings fresh tyres but risks the lead."]
                :["Se abre la ventana de boxes y tu ingeniero espera tu decisión.","The pit window opens and your engineer waits for your call."], opts:[
@@ -25317,7 +25342,9 @@ function wkSeg(R,i){ if(!R._sc) R._sc={}; if(!R._sc[i]) R._sc[i]=R.segB[i](R); r
 function wkRaceInit(ctx,grid){
   const cfg=ctx.cfg;
   const R={ctx, cfg, venue:ctx.venue, fam:ctx.fam, segB:wkSegs(ctx.fam), cars:grid.map((c,i)=>Object.assign(c,{t:i*0.12, dnf:false, tyre:100, dmg:0, boost:0, pitted:false, pit2:false, pitSeg:null, _p:i+1})), log:[], wet:false, D:100};
-  R.nseg=R.segB.length; R.riskMul=ctx.riskMul||1;
+  R.nseg=R.segB.length; R.riskMul=(ctx.riskMul||1)*.65;
+  { const seen=new Set(); R.cars=R.cars.filter(c=>{ if(seen.has(c.id)) return false; seen.add(c.id); return true; });
+    while(R.cars.length>WK_MAXCARS){ let wi=-1,wp=1e9; R.cars.forEach((c,i)=>{ if(!c.me && c.pace<wp){ wp=c.pace; wi=i; } }); if(wi<0) break; R.cars.splice(wi,1); } }
   R.me=R.cars.find(c=>c.me); R.gridPos=R.cars.indexOf(R.me)+1;
   if(cfg.pit) R.cars.forEach(c=>{ if(!c.me) c.pitSeg=cfg.pitSegs[irnd(0,cfg.pitSegs.length-1)]; });
   return R;
@@ -25330,7 +25357,7 @@ function wkStep(R,si,oi){
   const dpOpt = (typeof opt.dp==="function" ? opt.dp(R) : (opt.dp||0))*2.5;   // el peso de tus decisiones frente a la diferencia de coches
   R.cars.forEach(c=>{
     if(c.dnf) return;
-    let p=c.pace;
+    let p=c.pace+(c.me?WK_EASE:0);
     let tm;
     if(c.me){
       if(R.cfg.pit && opt.pit){ c.tyre=100; c.pitted=true; }
@@ -25345,8 +25372,8 @@ function wkStep(R,si,oi){
       const rk=(opt.risk||0)*(R.riskMul||1);
       if(ch(rk)){
         const r=Math.random();
-        if(r<.10 && rk>=.05){ c.dnf=true; ev.push(L("💥 ¡Abandonas! Un error o una avería te saca de carrera.","💥 You're out! A mistake or a failure ends your race.")); }
-        else if(r<.40){ tm+=rnd(7,13); c.dmg+=1.5; ev.push(L("💥 Toque fuerte: pierdes tiempo y el coche queda dañado.","💥 Heavy contact: time lost and the car is damaged.")); }
+        if(r<.05 && rk>=.07){ c.dnf=true; ev.push(L("💥 ¡Abandonas! Un error o una avería te saca de carrera.","💥 You're out! A mistake or a failure ends your race.")); }
+        else if(r<.30){ tm+=rnd(5,9); c.dmg+=1; ev.push(L("💥 Toque fuerte: pierdes tiempo y el coche queda dañado.","💥 Heavy contact: time lost and the car is damaged.")); }
         else { tm+=rnd(3,6); ev.push(L("😬 Un susto o un trompo: pierdes unos segundos.","😬 A scare or a spin: a few seconds lost.")); }
       }
     } else {
@@ -25401,24 +25428,85 @@ function wkStrip(R,box){
   R._sp=pos;
   return {html:h, go:()=>{ const els=box.querySelectorAll(".wk-car"); const f=()=>els.forEach(d=>{ d.style.left=d.dataset.to+"%"; }); if(window.__WK_FAST||!window.requestAnimationFrame) f(); else requestAnimationFrame(()=>requestAnimationFrame(f)); }};
 }
+/* ─── la tarjeta de carrera: torre de tiempos animada + minimapa con los coches girando por el circuito ─── */
+(function(){ const st=document.createElement("style"); st.textContent=`
+.wk-card{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0;align-items:flex-start}
+.wk-tower{position:relative;flex:1 1 250px;min-width:230px;border-radius:10px;background:#12141a;color:#f3f4f6;overflow:hidden;font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.wk-row{position:absolute;left:0;right:0;height:21px;display:flex;align-items:center;gap:5px;font-size:11.5px;transition:top .9s cubic-bezier(.3,.7,.3,1),background .4s;padding-right:6px;border-bottom:1px solid rgba(255,255,255,.05);white-space:nowrap}
+.wk-row .b{width:4px;height:15px;border-radius:2px;flex:0 0 4px;margin-left:3px}
+.wk-row .p{width:21px;text-align:center;font-weight:800;background:rgba(255,255,255,.1);border-radius:3px;font-size:11px;line-height:16px}
+.wk-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.wk-row .tm{flex:0 0 52px;overflow:hidden;text-overflow:ellipsis;opacity:.5;font-size:9.5px;font-style:normal}
+.wk-row .gp{flex:0 0 54px;text-align:right;opacity:.85}
+.wk-row .mv{flex:0 0 10px;font-size:9px;text-align:center}
+.wk-row .ty{flex:0 0 11px;height:11px;border-radius:50%;border:3px solid #facc15;box-sizing:border-box}
+.wk-row.me{background:linear-gradient(90deg,rgba(225,6,0,.55),rgba(225,6,0,.15));color:#fff}
+.wk-row.dnf{opacity:.35}
+.wk-row.dnf .p{background:#7f1d1d}
+.wk-row .ty.h{border-color:#f3f4f6}.wk-row .ty.w{border-color:#38bdf8}.wk-row .ty.n{border-color:transparent;background:transparent}
+.wk-side{flex:0 0 150px;display:flex;flex-direction:column;align-items:center;gap:3px;margin:0 auto}
+.wk-map{width:150px;height:115px}
+.wk-map path{fill:none;stroke-linejoin:round;stroke-linecap:round}
+.wk-map .t1{stroke:rgba(128,128,128,.35);stroke-width:13}
+.wk-map .t2{stroke:#374151;stroke-width:8}
+.wk-map .t3{stroke:#fff;stroke-width:.8;stroke-dasharray:3 4;opacity:.45}
+.wk-map circle.d{stroke:#fff;stroke-width:1.2}
+.wk-map circle.me{stroke:#fde047;stroke-width:2.2}
+.wk-map circle.x{opacity:0}
+.wk-lap-i{font-size:11px;opacity:.8;text-align:center}
+`; document.head.appendChild(st); })();
+function wkTri(c){ return String(surname(c.name)||"").replace(/[^A-Za-zÀ-ÿ]/g,"").slice(0,3).toUpperCase(); }
+function wkCardHTML(R){
+  const n=R.cars.length, sp=(R.fam==="rally")?null:wkTrackSpec(R.venue,R.fam);
+  const rows=R.cars.map(c=>`<div class="wk-row${c.me?" me":""}" data-id="${c.id}" style="top:0"><i class="b" style="background:${c.col}"></i><b class="p">·</b><span class="nm">${c.f||""} ${c.me?L("TÚ","YOU")+" · ":""}${surname(c.name)}</span><em class="tm">${String(c.tm||"").slice(0,9)}</em><span class="mv"></span><span class="gp"></span>${R.cfg.tyres?`<i class="ty"></i>`:`<i class="ty n"></i>`}</div>`).join("");
+  const map=sp?`<svg class="wk-map" viewBox="0 0 150 115"><path class="t1" d="${sp.d}"/><path class="t2" d="${sp.d}"/><path class="t3" d="${sp.d}"/>${R.cars.slice().reverse().map(c=>`<circle class="d${c.me?" me":""}" data-id="${c.id}" r="${c.me?5:3.2}" fill="${c.col}" cx="-20" cy="-20"/>`).join("")}</svg><div class="wk-lap-i"></div>`:"";
+  return `<div class="wk-card"><div class="wk-tower" style="height:${n*21}px">${rows}</div>${sp?`<div class="wk-side">${map}</div>`:""}</div>`;
+}
+function wkCardUpdate(R,box,seg){
+  const o=wkOrder(R), vivos=o.filter(c=>!c.dnf), lead=vivos.length?vivos[0].t:0, prev=R._pp||{};
+  o.forEach((c,i)=>{
+    const el=box.querySelector(`.wk-row[data-id="${c.id}"]`); if(!el) return;
+    el.style.top=(i*21)+"px"; el.classList.toggle("dnf",!!c.dnf);
+    el.querySelector(".p").textContent=c.dnf?"RET":(i+1);
+    el.querySelector(".gp").textContent=c.dnf?"—":(c===vivos[0]?L("Líder","Leader"):wkGap(c.t-lead));
+    const mv=el.querySelector(".mv"), pp=prev[c.id];
+    if(pp!=null && !c.dnf && pp!==i+1){ mv.textContent=pp>i+1?"▲":"▼"; mv.style.color=pp>i+1?"#4ade80":"#f87171"; } else mv.textContent="";
+    const ty=el.querySelector(".ty"); if(ty && !ty.classList.contains("n")){ ty.className="ty"+(R.wet?" w":(c.pitted?" h":"")); }
+  });
+  R._pp={}; o.forEach((c,i)=>{ R._pp[c.id]=i+1; });
+  /* puntos en el circuito: el líder avanza por la vuelta y los demás van por detrás según su diferencia */
+  const path=box.querySelector(".wk-map .t2"); if(!path) return;
+  const len=path.getTotalLength(), G=Math.max(8,vivos.length?vivos[vivos.length-1].t-lead:8), lf=(((seg==null?0:seg)+1)*.37+.1)%1, tgt={};
+  o.forEach(c=>{ tgt[c.id]=c.dnf?null:(((lf-Math.min(1,(c.t-lead)/G)*.5)%1)+1)%1; });
+  const from=R._df||{}, dots={}; R.cars.forEach(c=>{ dots[c.id]=box.querySelector(`.wk-map circle[data-id="${c.id}"]`); });
+  const put=(c,f)=>{ const d=dots[c.id]; if(!d) return; if(f==null){ d.classList.add("x"); return; } d.classList.remove("x"); const pt=path.getPointAtLength(len*f); d.setAttribute("cx",pt.x.toFixed(1)); d.setAttribute("cy",pt.y.toFixed(1)); };
+  const run=k=>{ R.cars.forEach(c=>{ const t=tgt[c.id]; if(t==null) return put(c,null); let a=from[c.id]; if(a==null) a=t; let dd=t-a; if(dd<0) dd+=1; put(c,(a+dd*k)%1); }); };
+  if(window.__WK_FAST||!window.requestAnimationFrame){ run(1); }
+  else { const t0=performance.now(); const tick=now=>{ const k=Math.min(1,(now-t0)/1400); run(k); if(k<1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+  R._df=tgt;
+}
 function wkPodioHTML(R){
   const v=wkOrder(R).filter(c=>!c.dnf).slice(0,3); if(v.length<3) return "";
   const ord=[1,0,2], hh=[92,126,70], med=["🥈","🥇","🥉"];
   return `<div class="wk-pod">${ord.map((k,j)=>{ const c=v[k]; return `<div class="${c.me?"me":""}" style="height:${hh[j]}px;background:${c.col}"><b>${med[j]}</b>${c.f||""} ${surname(c.name)}${c.me?" ⭐":""}<br><span style="opacity:.8">${String(c.tm||"").slice(0,14)}</span></div>`; }).join("")}</div>`;
 }
 function wkLights(box,cb){
-  if(window.__WK_FAST || !window.requestAnimationFrame){ cb(); return; }
+  if(window.__WK_FAST || !window.requestAnimationFrame || box.__rally){ cb(); return; }
   box.innerHTML=`<div class="wk-hdr"><span>🏁 ${L("Carrera","Race")}</span></div><div class="wk-lights">${"<i></i>".repeat(5)}</div><div class="wk-go"></div>`;
-  const lights=box.querySelectorAll(".wk-lights i"); let k=0;
-  const on=()=>{ if(k<5){ lights[k++].classList.add("on"); setTimeout(on,520); } else setTimeout(()=>{ lights.forEach(l=>l.classList.remove("on")); box.querySelector(".wk-go").textContent=L("¡GO!","GO!"); setTimeout(cb,550); },700); };
-  setTimeout(on,300);
-}
-function wkCarLine(R){
+  const lights=box.querySelectorAll(".wk-lights i"); let k=0, fired=false;
+  const go=()=>{ if(fired) return; fired=true; cb(); };   /* una sola vez: ni el semáforo ni el botón pueden arrancar la carrera dos veces */
+  const T=(fn,ms)=>setTimeout(()=>{ if(!fired) fn(); },ms);
+  const on=()=>{ if(k<5){ lights[k++].classList.add("on"); T(on,520); } else T(()=>{ lights.forEach(l=>l.classList.remove("on")); const g=box.querySelector(".wk-go"); if(g) g.textContent=L("¡GO!","GO!"); T(go,550); },700); };
+  /* el botón de la clasificación («Ir a la carrera») ya no vale: se sustituye por uno que se salta el semáforo */
+  renderSpecialOptions([wkBtn("⏩",L("Ir directo a la carrera","Skip the lights"),L("Sin esperar al semáforo","Don't wait for the lights"),"#e10600",go)]);
+  T(on,300);
+}function wkCarLine(R){
   const s=wkSit(R), tl={top:L("de los mejores de la parrilla","among the best on the grid"),mid:L("de la zona media","midfield"),back:L("de los más lentos","among the slowest")}[s.tier];
   return `<div style="font-size:12px;opacity:.85;margin:2px 0">🚗 ${L("Tu coche","Your car")}: <b>${s.carRank}º ${L("de","of")} ${s.n}</b> (${tl}) · ${L("tu nivel pide el","your level points to")} <b>${s.exp}º</b></div>`;
 }
+function wkCardShell(R,box){ if(R._shell && box.querySelector("#wkInfo") && box.querySelector(".wk-card")) return; box.innerHTML=`<div id="wkInfo"></div>${wkCardHTML(R)}`; R._shell=true; R._pp=null; R._df=null; }
 function wkRaceUI(ctx,grid,done){
-  const R=wkRaceInit(ctx,grid), box=wkBox();
+  const R=wkRaceInit(ctx,grid), box=wkBox(); R._shell=false;
   let note="";
   function seg(si){
     if(si>=R.nseg) return fin();
@@ -25431,9 +25519,9 @@ function wkRaceUI(ctx,grid,done){
     setDecision(`🏁 ${ctx.venue} · ${wkT(sg.t)} (${si+1}/${R.nseg})`, wkT(sg.d));
     const tyre=R.cfg.tyres?`<div style="font-size:12px">${R.fam==="formulae"?"🔋 "+L("Energía","Energy"):R.fam==="rally"?"🛞 "+L("Gomas","Tyres"):"🛞 "+L("Neumáticos","Tyres")}: <b>${Math.round(me.tyre)} %</b></div><div class="wk-bar"><i style="width:${Math.round(me.tyre)}%;background:${me.tyre>55?"#16a34a":me.tyre>30?"#d97706":"#dc2626"}"></i></div>`:"";
     const gp=`<div style="font-size:12px;opacity:.8">${ahead?L("Delante","Ahead")+": "+surname(ahead.name)+" ("+wkGap(me.t-ahead.t).replace("+","−")+")":L("Vas líder","You lead")}${behind?" · "+L("Detrás","Behind")+": "+surname(behind.name)+" ("+wkGap(behind.t-me.t)+")":""}</div>`;
-    const strip=wkStrip(R,box);
-    box.innerHTML=`<div class="wk-hdr"><span>🏁 ${L("Carrera","Race")} · ${mp+1}º</span><span style="opacity:.7">${L("Salida","Grid")} ${R.gridPos}º</span></div>${wkCarLine(R)}${strip.html}${note?`<div class="wk-note">${note}</div>`:""}${tyre}${gp}${wkTablaR(R)}`;
-    strip.go();
+    wkCardShell(R,box);
+    box.querySelector("#wkInfo").innerHTML=`<div class="wk-hdr"><span>${R.fam==="rally"?"🏎️ "+L("Rally · clasificación por tiempos","Rally · overall by time"):"🏁 "+L("Carrera","Race")} · ${mp+1}º</span><span style="opacity:.7">${R.fam==="rally"?L("Orden de salida","Start order"):L("Salida","Grid")} ${R.gridPos}º</span></div>${wkCarLine(R)}${note?`<div class="wk-note">${note}</div>`:""}${tyre}${gp}`;
+    wkCardUpdate(R,box,si);
     const em=["🔥","⚖️","🛡️"], col=["#dc2626","#0e7490","#16a34a"];
     const btns=sg.opts.map((op,i)=>wkBtn(em[i]||"•",wkT(op.l),wkT(op.s)+" · "+wkSegsRisk(op),col[i]||"#4b5563",()=>{
       const ev=wkStep(R,si,i); note=ev.join(" "); seg(si+1);
@@ -25445,13 +25533,13 @@ function wkRaceUI(ctx,grid,done){
     const res=wkRaceRes(R);
     const txt = res.dnf ? L("💥 No ves la bandera a cuadros.","💥 You don't see the chequered flag.")
       : res.finish===1 ? L("🏆 ¡VICTORIA!","🏆 VICTORY!") : res.finish<=3 ? L(`🥇🥈🥉 ¡Podio! Terminas ${res.finish}º.`,`🥇🥈🥉 Podium! You finish P${res.finish}.`) : L(`Terminas ${res.finish}º.`,`You finish P${res.finish}.`);
-    setDecision(`🏁 ${ctx.venue} · ${L("Resultado","Result")}`, L(`Salías ${res.grid}º · tu nivel y coche pedían el ${res.exp}º.`,`You started P${res.grid} · your level and car pointed to P${res.exp}.`));
-    const strip=wkStrip(R,box);
-    box.innerHTML=`<div class="wk-note"><b>${txt}</b> ${note}</div>${wkPodioHTML(R)}${strip.html}${wkTablaR(R)}`;
-    strip.go();
+    setDecision(`🏁 ${ctx.venue} · ${L("Resultado","Result")}`, (R.fam==="rally"?L(`Salías en el puesto ${res.grid}º del orden de salida · tu nivel y coche pedían el ${res.exp}º.`,`You started ${res.grid}th on the road order · your level and car pointed to P${res.exp}.`):L(`Salías ${res.grid}º · tu nivel y coche pedían el ${res.exp}º.`,`You started P${res.grid} · your level and car pointed to P${res.exp}.`)));
+    wkCardShell(R,box);
+    box.querySelector("#wkInfo").innerHTML=`<div class="wk-note"><b>${txt}</b> ${note}</div>${wkPodioHTML(R)}`;
+    wkCardUpdate(R,box,R.nseg);
     renderSpecialOptions([wkBtn("▶",L("Continuar","Continue"),"","#0e7490",()=>done(res))]);
   }
-  wkLights(box,()=>seg(0));
+  box.__rally=(R.fam==="rally"); wkLights(box,()=>seg(0));
 }
 
 /* ─── un fin de semana entero ─── */
@@ -25459,7 +25547,7 @@ function wkCtx(n){
   const fam=wkFam(), cfg=wkCfg(fam);
   S._wkSedes=S._wkSedes||wkSedes(fam);
   const base=wkCampo(fam,cfg);
-  return {n, fam, cfg, venue:S._wkSedes[n-1]||("GP "+n), cars:base.map(c=>Object.assign({},c,{t:0,dnf:false,tyre:100,_L:[],_v:0}))};
+  return {n, fam, cfg, cw:base.cw, venue:S._wkSedes[n-1]||("GP "+n), cars:base.map(c=>Object.assign({},c,{t:0,dnf:false,tyre:100,_L:[],_v:0}))};
 }
 function wkCatLabel(){ try{ return catEtiqueta(); }catch(e){ return ""; } }
 function wkFinde(n,cont){
@@ -25468,10 +25556,10 @@ function wkFinde(n,cont){
   window.__wkNames=ctx.cfg.names;
   const auto=()=>{ const grid=wkQualiAuto(ctx); const R=wkRaceInit(ctx,grid); cont(wkRaceAuto(R)); };
   if(S.wkAuto) return auto();
-  setDecision(`🏁 ${L("Fin de semana","Race weekend")} ${n}/2 · ${ctx.venue}`, L(`${wkCatLabel()} · clasificación y carrera. Juégalo, o simúlalo si no te apetece.`,`${wkCatLabel()} · qualifying and race. Play it, or simulate it if you'd rather not.`));
+  setDecision(`🏁 ${L("Fin de semana","Race weekend")} ${n}/2 · ${ctx.venue}`, (ctx.fam==="rally"?L(`${wkCatLabel()} · shakedown y rally por tramos (no hay carrera: gana quien suma menos tiempo). Juégalo, o simúlalo.`,`${wkCatLabel()} · shakedown and stage rally (no race: lowest total time wins). Play it, or simulate it.`):L(`${wkCatLabel()} · clasificación y carrera. Juégalo, o simúlalo si no te apetece.`,`${wkCatLabel()} · qualifying and race. Play it, or simulate it if you'd rather not.`)));
   $("decRecap").style.display="none"; wkBoxOff();
   renderSpecialOptions([
-    wkBtn("🏁",L("Jugar el fin de semana","Play the weekend"),L("Clasificación con sectores y carrera por decisiones","Sector-by-sector qualifying and a race of decisions"),"#e10600",()=>{
+    wkBtn("🏁",L("Jugar el fin de semana","Play the weekend"),(ctx.fam==="rally"?L("Shakedown con parciales y rally por tramos","Shakedown with splits and a stage rally"):L("Clasificación con sectores y carrera por decisiones","Sector-by-sector qualifying and a race of decisions")),"#e10600",()=>{
       wkQualiUI(ctx,grid=>{ window.__wkNames=ctx.cfg.names; wkRaceUI(ctx,grid,res=>cont(res)); }); }),
     wkBtn("⏭️",L("Simular este fin de semana","Simulate this weekend"),L("Se juega solo","It plays itself"),"#4b5563",()=>auto()),
     wkBtn("🔕",L("Simular siempre (esta partida)","Always simulate (this career)"),L("Lo puedes reactivar con el botón 🏁 de la tarjeta","Re-enable it with the 🏁 button on the card"),"#71717c",()=>{ S.wkAuto=true; auto(); })
@@ -25489,7 +25577,7 @@ function wkMain(cont){
     window.__wkCont=null; cont();
   };
   const _sl=(typeof wkSlot==="function")?wkSlot:((n,cb)=>cb());
-  _sl(1,()=>wkFinde(1,r1=>{ S._wkRes.push(r1); _sl(2,()=>wkFinde(2,r2=>{ S._wkRes.push(r2); fin(); })); }));
+  _sl(1,()=>wkFinde(1,r1=>{ (S._wkRes=S._wkRes||[]).push(r1); _sl(2,()=>wkFinde(2,r2=>{ (S._wkRes=S._wkRes||[]).push(r2); fin(); })); }));
 }
 function wkResumen(rs,bonus){
   const f=r=>`${r.venue}: ${L("salida","grid")} ${r.grid}º → ${r.dnf?L("abandono","DNF"):r.finish+"º"}${r.pole?" 🟪":""}${r.win?" 🏆":""}`;
@@ -26445,7 +26533,7 @@ const ADV_EQUIPOS_ERA={
   display:flex;align-items:center;justify-content:center;padding:0;transition:opacity .15s}
 #modBtn:hover,#modBtn.on,#modBtn.open{opacity:.95}
 #modBtn.on{border-color:#ffce3a;box-shadow:0 0 0 2px rgba(255,206,58,.35)}
-#modPanel{position:fixed;top:58px;left:12px;z-index:65;width:264px;max-width:calc(100vw - 24px);display:none;padding:14px;border-radius:14px;
+#modPanel{position:fixed;top:104px;left:12px;z-index:65;width:264px;max-width:calc(100vw - 24px);display:none;padding:14px;border-radius:14px;
   background:rgba(20,20,28,.88);color:#fff;font:600 13px/1.3 system-ui,sans-serif;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
 #modPanel.open{display:block}
 #modPanel h4{margin:0 0 10px;font-size:14px;font-weight:800}
@@ -26522,6 +26610,592 @@ function modRefresh(){
   btn.onclick=()=>{ const o=!pan.classList.contains("open"); if(o) build(); pan.classList.toggle("open",o); btn.classList.toggle("open",o); };
   btn.classList.toggle("on",modOn());
   document.body.appendChild(btn); document.body.appendChild(pan);
+})();
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════════
+   💾 GUARDAR PARTIDA · 3 ranuras (localStorage)
+   · Botón 💾 debajo del engranaje del mod menu: guarda/sobrescribe, carga o borra una ranura.
+   · En el menú de elegir modo aparecen las mismas 3 ranuras para cargar la carrera donde la dejaste.
+   · Se guarda en el INVIERNO (cuando ves las ofertas/decisiones del año que viene): es el único punto en el que no hay
+     funciones ni animaciones a medias. Al cargar se vuelve a esa pantalla de invierno con todo el mundo como estaba.
+   · Se serializa el grafo entero (S + parrillas de cada categoría + insignias) conservando las referencias compartidas
+     (un piloto que está en S.seats y en S.dpool sigue siendo el MISMO objeto) y los ciclos.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+(function(){ const st=document.createElement("style"); st.textContent=`
+#saveBtn{position:fixed;top:56px;left:12px;z-index:65;width:38px;height:38px;border-radius:50%;border:1px solid rgba(255,255,255,.35);
+  background:rgba(20,20,28,.35);color:#fff;font-size:17px;line-height:1;cursor:pointer;opacity:.45;backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:0;transition:opacity .15s}
+#saveBtn:hover,#saveBtn.open{opacity:.95}
+#savePanel{position:fixed;top:102px;left:12px;z-index:66;width:300px;max-width:calc(100vw - 24px);display:none;padding:14px;border-radius:14px;
+  background:rgba(20,20,28,.92);color:#fff;font:600 13px/1.3 system-ui,sans-serif;border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+#savePanel.open{display:block}
+#savePanel h4{margin:0 0 8px;font-size:14px;font-weight:800}
+.sv-note{font-size:11px;opacity:.7;font-weight:500;margin:6px 0 0}
+.sv-slot{border:1px solid rgba(128,128,128,.35);border-radius:10px;padding:8px 10px;margin:6px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sv-slot .tx{flex:1 1 140px;min-width:130px}
+.sv-slot .tx b{display:block;font-size:13px}
+.sv-slot .tx small{display:block;font-size:11px;opacity:.7;font-weight:500}
+.sv-slot button{border:0;border-radius:8px;padding:6px 9px;font:700 12px system-ui,sans-serif;cursor:pointer;background:#e10600;color:#fff}
+.sv-slot button.alt{background:#0e7490}
+.sv-slot button.del{background:#4b5563}
+.sv-slot button:disabled{opacity:.35;cursor:default}
+#svHome{margin:12px auto 0;max-width:560px;text-align:left}
+#svHome h3{margin:0 0 6px;font-size:15px}
+#svHome .sv-slot{background:rgba(128,128,128,.08)}
+#svHome .sv-slot button{background:#0e7490}
+#svHome .sv-slot button.del{background:#6b7280}
+#svToast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;background:#111827;color:#fff;padding:9px 14px;border-radius:10px;font:600 13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.4);display:none;max-width:90vw}
+`; document.head.appendChild(st); })();
+
+const SV_N=3, SV_KEY=i=>"f1g_save_"+i, SV_META=i=>"f1g_save_meta_"+i;
+
+/* ─── serializador de grafos: conserva referencias compartidas y ciclos ─── */
+function svEnc(root){
+  const ids=new Map(), nodes=[];
+  function enc(v){
+    if(v===null) return null;
+    const t=typeof v;
+    if(t==="number") return Number.isFinite(v)?v:{n:String(v)};
+    if(t==="string"||t==="boolean") return v;
+    if(t==="undefined"||t==="function"||t==="symbol") return {u:1};
+    if(t==="bigint") return {n:String(v)};
+    if(ids.has(v)) return {r:ids.get(v)};
+    const id=nodes.length; ids.set(v,id); const node={}; nodes.push(node);
+    if(Array.isArray(v)) node.a=v.map(enc);
+    else if(v instanceof Set) node.s=[...v].map(enc);
+    else if(v instanceof Map) node.m=[...v].map(([k,x])=>[enc(k),enc(x)]);
+    else if(v instanceof Date) node.d=v.getTime();
+    else { node.o={}; for(const k of Object.keys(v)){ const x=v[k]; if(typeof x==="function") continue; node.o[k]=enc(x); } }
+    return {r:id};
+  }
+  const r=enc(root); return {root:r, nodes};
+}
+function svDec(g){
+  const objs=g.nodes.map(n=> n.a?[] : n.s?new Set() : n.m?new Map() : n.d!=null?new Date(n.d) : {});
+  const dec=e=> (e && typeof e==="object") ? (e.r!=null ? objs[e.r] : e.u ? undefined : e.n!=null ? Number(e.n) : e) : e;
+  g.nodes.forEach((n,i)=>{ const o=objs[i];
+    if(n.a) n.a.forEach(x=>o.push(dec(x)));
+    else if(n.s) n.s.forEach(x=>o.add(dec(x)));
+    else if(n.m) n.m.forEach(([k,x])=>o.set(dec(k),dec(x)));
+    else if(n.o) for(const k in n.o) o[k]=dec(n.o[k]); });
+  return dec(g.root);
+}
+
+/* ─── ¿se puede guardar ahora? ─── */
+function svActiva(){ return typeof S!=="undefined" && !!S && !S.retired && !S.challenge && !(typeof CHALLENGE!=="undefined" && CHALLENGE) && !(typeof TEST_MODE!=="undefined" && TEST_MODE) && $("career") && $("career").style.display!=="none"; }
+function svPuede(){ return svActiva() && S._ph==="winter" && !(S.seasons==null); }
+function svMeta(){
+  return {t:Date.now(), name:sel.name||"—", flag:sel.flag||"", era:S.era||SELECTED_ERA, year:yearNow(), age:S.age, cat:S.cat, ovr:Math.round(S.ovr), team:(S.team&&S.team.name)||"", tp:S.cat==="TP", titles:(S.titles&&S.titles.f1)||0, seasons:(S.seasons||[]).length};
+}
+function svGuardar(i){
+  if(!svPuede()){ svToast(L("Solo se puede guardar en el invierno: cuando ves las ofertas del próximo año.","You can only save in the winter: when you're looking at next year's offers.")); return false; }
+  try{
+    const root={S, F1:F1_TEAMS, F4:F4_TEAMS, F3:F3_TEAMS, FR:FRECA_TEAMS, F2:F2_TEAMS, KART:KART_TEAMS, JR:JUNIOR_OF, BADGE:SPONSOR_BADGE,
+                sel:{name:sel.name,num:sel.num,country:sel.country,flag:sel.flag,style:sel.style}, era:SELECTED_ERA, tp:!!TP_MODE, v:2};
+    const json=JSON.stringify(svEnc(root));
+    localStorage.setItem(SV_KEY(i),json); localStorage.setItem(SV_META(i),JSON.stringify(svMeta()));
+    svToast(L("💾 Partida guardada en la ranura ","💾 Game saved in slot ")+(i+1)+" ("+Math.round(json.length/1024)+" KB)");
+    return true;
+  }catch(e){ svToast(L("No se pudo guardar (¿almacenamiento lleno?)","Couldn't save (storage full?)")); try{ track("save_error",{msg:String((e&&e.message)||e).slice(0,80)}); }catch(_){} return false; }
+}
+function svInPlace(dst,src){ dst.length=0; (src||[]).forEach(x=>dst.push(x)); }
+function svCargar(i){
+  let g;
+  try{ const raw=localStorage.getItem(SV_KEY(i)); if(!raw) return false; g=svDec(JSON.parse(raw)); }catch(e){ svToast(L("La ranura está dañada.","This slot is damaged.")); return false; }
+  try{
+    SELECTED_ERA=g.era||"2026"; TP_MODE=!!g.tp; CHALLENGE=null;
+    Object.assign(sel,g.sel||{});
+    svInPlace(F1_TEAMS,g.F1); svInPlace(F4_TEAMS,g.F4); svInPlace(F3_TEAMS,g.F3); svInPlace(FRECA_TEAMS,g.FR); svInPlace(F2_TEAMS,g.F2); svInPlace(KART_TEAMS,g.KART);
+    JUNIOR_OF=g.JR||{};
+    Object.keys(SPONSOR_BADGE).forEach(k=>{ delete SPONSOR_BADGE[k]; }); Object.assign(SPONSOR_BADGE,g.BADGE||{});
+    S=g.S;
+    try{ modInstall(); }catch(e){}
+    try{ wkBoxOff(); }catch(e){}
+    window.__wkCont=null; window.__wkDilCont=null; S._wkF=null; S._wkSedes=null; S._wkRes=null; S._wkYear=null;
+    $("intro").style.display="none"; $("identity").style.display="none"; $("career").style.display="block";
+    try{ $("tagNum").textContent="#"+sel.num; $("tagStyle").textContent=styleLabel(sel.style); }catch(e){}
+    const dm=document.getElementById("modal"); if(dm && dm.classList) dm.classList.remove("show");
+    try{ if(S.cat==="TP" && typeof tpRefreshCard==="function") tpRefreshCard(); else refreshCard(); }catch(e){}
+    S._ph="winter";
+    svPanelOff();
+    setTimeout(()=>{ try{ nextOffers(); }catch(e){ try{ track("load_error",{msg:String((e&&e.message)||e).slice(0,80)}); }catch(_){} } }, 30);
+    svToast(L("📂 Partida cargada: ","📂 Game loaded: ")+(sel.name||"")+" · "+yearNow());
+    return true;
+  }catch(e){ svToast(L("No se pudo cargar esta partida.","Couldn't load this game.")); try{ track("load_error",{msg:String((e&&e.message)||e).slice(0,80)}); }catch(_){} return false; }
+}
+function svBorrar(i){ try{ localStorage.removeItem(SV_KEY(i)); localStorage.removeItem(SV_META(i)); }catch(e){} }
+function svLeerMeta(i){ try{ const m=localStorage.getItem(SV_META(i)); return m?JSON.parse(m):null; }catch(e){ return null; } }
+
+/* ─── interfaz ─── */
+function svToast(msg){ let t=document.getElementById("svToast"); if(!t){ t=document.createElement("div"); t.id="svToast"; document.body.appendChild(t); } t.textContent=msg; t.style.display="block"; clearTimeout(svToast._t); svToast._t=setTimeout(()=>{ t.style.display="none"; },3200); }
+function svFecha(ms){ try{ return new Date(ms).toLocaleString(LANG==="en"?"en-GB":"es-ES",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }catch(e){ return ""; } }
+function svSlotHTML(i,modo){
+  const m=svLeerMeta(i), eraTxt=m?(m.era==="2026"?"":(" · "+m.era)):"";
+  const tx=m ? `<b>${L("Ranura","Slot")} ${i+1} · ${m.flag||""} ${m.name}</b><small>${m.tp?"🧑‍💼 ":""}${m.year}${eraTxt} · ${m.tp?L("Team Principal","Team Principal"):m.age+" "+L("años","y/o")+" · "+m.cat} · ${m.team||"—"} · ${m.seasons} ${L("temp.","seasons")}</small><small>${svFecha(m.t)}</small>`
+              : `<b>${L("Ranura","Slot")} ${i+1}</b><small>${L("Vacía","Empty")}</small>`;
+  const b=[];
+  if(modo==="juego") b.push(`<button data-a="g" data-i="${i}" ${svPuede()?"":"disabled"}>${m?L("Sobrescribir","Overwrite"):L("Guardar","Save")}</button>`);
+  if(m) b.push(`<button class="alt" data-a="c" data-i="${i}">${L("Cargar","Load")}</button><button class="del" data-a="d" data-i="${i}" title="${L("Borrar","Delete")}">🗑</button>`);
+  return `<div class="sv-slot"><div class="tx">${tx}</div>${b.join("")}</div>`;
+}
+function svBind(root,modo){
+  root.querySelectorAll("button[data-a]").forEach(b=>{ b.onclick=ev=>{ ev.stopPropagation(); const i=+b.dataset.i, a=b.dataset.a;
+    if(a==="g"){ const m=svLeerMeta(i); if(m && !confirm(L("¿Sobrescribir la ranura ","Overwrite slot ")+(i+1)+"?")) return; if(svGuardar(i)) svRender(); }
+    else if(a==="c"){ if(modo==="juego" && !confirm(L("Se perderá el progreso no guardado de la partida actual. ¿Cargar?","Unsaved progress will be lost. Load?"))) return; svCargar(i); }
+    else if(a==="d"){ if(confirm(L("¿Borrar la ranura ","Delete slot ")+(i+1)+"?")){ svBorrar(i); svRender(); svHomeRender(); } } }; });
+}
+function svPanelOff(){ const p=document.getElementById("savePanel"), b=document.getElementById("saveBtn"); if(p) p.classList.remove("open"); if(b) b.classList.remove("open"); }
+function svRender(){
+  const p=document.getElementById("savePanel"); if(!p) return;
+  let h=`<h4>💾 ${L("Guardar partida","Save game")}</h4>`; for(let i=0;i<SV_N;i++) h+=svSlotHTML(i,"juego");
+  h+=`<div class="sv-note">${svPuede()?L("Se guarda este invierno, en la pantalla de ofertas.","Saves right here, at this winter's offers screen."):L("Solo se puede guardar en el invierno (cuando ves las ofertas del año que viene). Termina esta temporada y vuelve aquí.","You can only save in the winter (when you see next year's offers). Finish this season and come back.")}</div>`;
+  p.innerHTML=h; svBind(p,"juego");
+}
+function svHomeRender(){
+  const intro=document.getElementById("intro"); if(!intro) return;
+  let box=document.getElementById("svHome");
+  if(!box){ box=document.createElement("div"); box.id="svHome"; const mm=intro.querySelector(".mode-menu"); (mm||intro).appendChild(box); }
+  const hay=[0,1,2].some(i=>svLeerMeta(i));
+  box.innerHTML=`<h3>💾 ${L("Partidas guardadas","Saved games")}</h3>`+[0,1,2].map(i=>svSlotHTML(i,"inicio")).join("")+(hay?"":`<div class="sv-note">${L("Aún no hay partidas guardadas. Dentro de una carrera, el botón 💾 de arriba a la izquierda las guarda.","No saved games yet. Inside a career, the 💾 button at the top left saves them.")}</div>`);
+  svBind(box,"inicio");
+}
+(function(){
+  const btn=document.createElement("button"); btn.id="saveBtn"; btn.type="button"; btn.textContent="💾"; btn.title="Guardar partida / Save game";
+  const pan=document.createElement("div"); pan.id="savePanel";
+  btn.onclick=()=>{ const o=!pan.classList.contains("open"); if(o) svRender(); pan.classList.toggle("open",o); btn.classList.toggle("open",o); };
+  document.body.appendChild(btn); document.body.appendChild(pan);
+  const vis=()=>{ try{ btn.style.display=svActiva()?"flex":"none"; if(!svActiva()) svPanelOff(); }catch(e){} };
+  setInterval(vis,700); vis();
+  try{ svHomeRender(); }catch(e){}
+  setInterval(()=>{ try{ const i=document.getElementById("intro"); if(i && i.style.display!=="none" && !document.getElementById("svHome")) svHomeRender(); }catch(e){} },1000);
+})();
+
+/* ─── fases: «invierno» = pantalla de ofertas/decisiones entre temporadas ─── */
+(function(){
+  const _no=nextOffers;
+  nextOffers=function(){ try{ if(S) S._ph="winter"; }catch(e){} return _no.apply(this,arguments); };
+  const _sc=signContract;
+  signContract=function(){ try{ if(S) S._ph="busy"; }catch(e){} return _sc.apply(this,arguments); };
+  const _ss=startSeasonRun;
+  startSeasonRun=function(){ try{ if(S) S._ph="busy"; }catch(e){} return _ss.apply(this,arguments); };
+})();
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════════
+   🧬 NOMBRES GENERADOS REALISTAS
+   Antes: 154 apellidos con una inicial cualquiera → en una carrera larga se agotaban y se repetían («K. Moreno» con una K
+   que ni existe en Japón). Ahora: ~900 apellidos por país + iniciales propias de cada país (un japonés es «K. Tanaka»,
+   un finlandés «J. Virtanen», un brasileño «L. Oliveira»). GEN_NAMES crece en su sitio, así que todo lo que ya tiraba
+   de él (novatos, cantera, parrillas del fin de semana, maletín…) lo aprovecha sin tocar nada más.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+const GEN_POOL={
+ "🇮🇹":{i:"ADEFGLMNPRSVCGB",n:"Conti,Ferraro,Gallo,Greco,Bruno,Fontana,Marino,Rinaldi,Caruso,Ferrari,Moretti,Barbieri,Lombardi,Giordano,Colombo,Mancini,Costa,Santoro,Rizzo,De Luca,Battaglia,Palumbo,Villa,Parisi,Leone,Gentile,Sanna,Mariani,Orlando,Basile,Pellegrini,Fabbri,Silvestri,Cattaneo,Bellini,Monti,Gatti,Serra,Longo,Piras"},
+ "🇪🇸":{i:"ADJMPRSFIVCEL",n:"García,Rodríguez,Fernández,López,Martínez,Sánchez,Pérez,Gómez,Ruiz,Hernández,Díaz,Álvarez,Muñoz,Romero,Alonso,Gutiérrez,Navarro,Torres,Domínguez,Gil,Vázquez,Serrano,Ramos,Blanco,Suárez,Molina,Castro,Ortega,Delgado,Marín,Iglesias,Medina,Cortés,Garrido,Castillo,Santos,Lozano,Guerrero,Cano,Prieto,Méndez,Cruz,Calvo,Gallego,Vicente,León,Márquez,Peña,Herrera,Pascual"},
+ "🇩🇪":{i:"MTJFPNLKSAHCDB",n:"Müller,Schmidt,Schneider,Fischer,Weber,Meyer,Wagner,Becker,Schulz,Hoffmann,Koch,Richter,Klein,Wolf,Schröder,Neumann,Schwarz,Zimmermann,Braun,Krüger,Hofmann,Hartmann,Lange,Schmitt,Werner,Krause,Meier,Lehmann,Schmid,Schulze,Maier,Köhler,Herrmann,König,Walter,Mayer,Huber,Kaiser,Fuchs,Peters,Lang,Scholz,Möller,Weiß,Jung,Hahn,Keller,Vogel,Frank,Berger"},
+ "🇬🇧":{i:"JTRCDHBGMAWSLP",n:"Smith,Jones,Taylor,Brown,Williams,Wilson,Johnson,Davies,Robinson,Wright,Thompson,Evans,Walker,White,Roberts,Green,Hall,Wood,Jackson,Clarke,Patel,Turner,Hill,Cooper,Harrison,Ward,Morgan,Baker,Cook,Bailey,Marshall,Carter,Mitchell,Phillips,Collins,Bennett,Fox,Gray,Hudson,Kelly,Lawrence,Palmer,Parsons,Reid,Shaw,Stone,Watts,Webb,Hughes,Armstrong"},
+ "🇫🇷":{i:"JPMLAFNTCRSEBG",n:"Martin,Bernard,Dubois,Thomas,Robert,Richard,Petit,Durand,Leroy,Moreau,Simon,Laurent,Lefebvre,Michel,Garcia,David,Bertrand,Roux,Vincent,Fournier,Morel,Girard,André,Mercier,Dupont,Lambert,Bonnet,François,Martinez,Legrand,Garnier,Faure,Rousseau,Blanc,Guérin,Muller,Henry,Roussel,Nicolas,Perrin,Morin,Mathieu,Clément,Gauthier,Dumont,Lopez,Fontaine,Chevalier,Robin,Masson"},
+ "🇧🇷":{i:"LRGFMPCAEJBTDV",n:"Silva,Santos,Oliveira,Souza,Rodrigues,Ferreira,Alves,Pereira,Lima,Gomes,Costa,Ribeiro,Martins,Carvalho,Almeida,Lopes,Soares,Fernandes,Vieira,Barbosa,Rocha,Dias,Nascimento,Andrade,Moreira,Nunes,Marques,Machado,Mendes,Freitas,Cardoso,Ramos,Gonçalves,Santana,Teixeira,Araújo,Pinto,Correia,Moura,Cavalcanti,Monteiro,Medeiros,Campos,Azevedo,Borges,Duarte,Farias,Siqueira,Tavares,Xavier"},
+ "🇺🇸":{i:"JMCDRTBKAWSEGN",n:"Anderson,Miller,Davis,Moore,Thomas,Jackson,Martin,Lee,Thompson,Harris,Clark,Lewis,Robinson,Walker,Young,Allen,King,Scott,Adams,Baker,Nelson,Carter,Mitchell,Perez,Roberts,Turner,Phillips,Campbell,Parker,Evans,Edwards,Collins,Stewart,Morris,Murphy,Cook,Rogers,Morgan,Cooper,Peterson,Reed,Bailey,Bell,Kelly,Howard,Ward,Cox,Richardson,Wood,Watson"},
+ "🇯🇵":{i:"KHSTYNMRAIT",n:"Sato,Suzuki,Takahashi,Tanaka,Watanabe,Ito,Yamamoto,Nakamura,Kobayashi,Kato,Yoshida,Yamada,Sasaki,Yamaguchi,Matsumoto,Inoue,Kimura,Hayashi,Shimizu,Yamazaki,Mori,Abe,Ikeda,Hashimoto,Ishikawa,Ogawa,Goto,Okada,Hasegawa,Fujita,Kondo,Maeda,Aoki,Endo,Fujii,Nishimura,Fukuda,Ota,Miura,Takeuchi,Nakajima,Harada,Ono,Tamura,Sakamoto,Murata,Nomura,Kikuchi,Iwasa,Sugimoto"},
+ "🇳🇱":{i:"JMPWRDTHAKLB",n:"de Jong,Jansen,de Vries,van den Berg,van Dijk,Bakker,Janssen,Visser,Smit,Meijer,de Boer,Mulder,de Groot,Bos,Vos,Peters,Hendriks,van Leeuwen,Dekker,Brouwer,de Wit,Dijkstra,Smits,de Graaf,van der Meer,van der Linden,Kok,Jacobs,de Haan,Vermeulen,van den Heuvel,van der Veen,van den Broek,de Bruijn,de Bruin,Schouten,van Beek,Willems,van Vliet,Hoekstra"},
+ "🇦🇷":{i:"MJLFCGNDAPSEV",n:"González,Rodríguez,Gómez,Fernández,López,Díaz,Martínez,Pérez,Romero,Sánchez,García,Sosa,Torres,Álvarez,Ruiz,Ramírez,Flores,Benítez,Acosta,Medina,Herrera,Suárez,Aguirre,Giménez,Gutiérrez,Pereyra,Rojas,Molina,Castro,Ortiz,Silva,Núñez,Luna,Juárez,Cabrera,Ríos,Morales,Domínguez,Ledesma,Peralta"},
+ "🇲🇽":{i:"JMAEDRLFGCPS",n:"Hernández,García,Martínez,López,González,Rodríguez,Pérez,Sánchez,Ramírez,Flores,Gómez,Cruz,Morales,Vázquez,Reyes,Jiménez,Torres,Díaz,Gutiérrez,Ruiz,Mendoza,Aguilar,Ortiz,Moreno,Castillo,Romero,Álvarez,Chávez,Rivera,Juárez,Ramos,Domínguez,Herrera,Medina,Guerrero,Vargas,Estrada,Salazar,Rojas,Ibarra"},
+ "🇦🇺":{i:"JMDLCBTAHSRW",n:"Smith,Jones,Williams,Brown,Wilson,Taylor,Anderson,Thompson,Walker,White,Harris,Martin,Thomas,Robinson,Clarke,Mitchell,Campbell,Kelly,Ryan,Murray,Hughes,Cameron,Bell,Fraser,Hunter,Mason,Reid,Barker,Grant,Foster,Chapman,Wallace,Ellis,Burke,Doyle,Pearce,Dunn,Gibson,Hayes,Sharp"},
+ "🇫🇮":{i:"JMKTAHVOSLEP",n:"Korhonen,Virtanen,Mäkinen,Nieminen,Mäkelä,Hämäläinen,Laine,Heikkinen,Koskinen,Järvinen,Lehtonen,Lehtinen,Saarinen,Salminen,Heinonen,Niemi,Heikkilä,Kinnunen,Salonen,Turunen,Salo,Laitinen,Tuominen,Rantanen,Karjalainen,Jokinen,Mattila,Savolainen,Lahtinen,Ahonen,Leppänen,Väisänen,Hiltunen,Kärkkäinen,Pitkänen,Aalto,Hakala,Rautio,Pöyry,Honkanen"},
+ "🇸🇪":{i:"AEJMOLPKHCNS",n:"Andersson,Johansson,Karlsson,Nilsson,Eriksson,Larsson,Olsson,Persson,Svensson,Gustafsson,Pettersson,Jonsson,Jansson,Hansson,Bengtsson,Jönsson,Lindberg,Jakobsson,Magnusson,Olofsson,Lindström,Lindqvist,Lindgren,Axelsson,Berg,Bergström,Lundberg,Lind,Lundgren,Mattsson,Berglund,Fredriksson,Sandberg,Henriksson,Forsberg,Sjöberg,Wallin,Engström,Eklund,Danielsson"},
+ "🇩🇰":{i:"MJLAKSPNHCTO",n:"Jensen,Nielsen,Hansen,Pedersen,Andersen,Christensen,Larsen,Sørensen,Rasmussen,Jørgensen,Petersen,Madsen,Kristensen,Olsen,Thomsen,Christiansen,Poulsen,Johansen,Møller,Mortensen,Knudsen,Jakobsen,Jacobsen,Mikkelsen,Olesen,Frederiksen,Laursen,Henriksen,Lund,Schmidt,Eriksen,Holm,Kristiansen,Clausen,Simonsen,Svendsen,Andreasen,Iversen,Jeppesen,Vestergaard"},
+ "🇨🇭":{i:"MRPSLTJCAFB",n:"Müller,Meier,Schmid,Keller,Weber,Huber,Schneider,Meyer,Steiner,Fischer,Gerber,Brunner,Baumann,Frei,Zimmermann,Moser,Widmer,Wyss,Graf,Roth,Suter,Bachmann,Hofmann,Lüthi,Berger,Studer,Bieri,Egger,Ammann,Marti,Kunz,Arnold,Rossi,Bernasconi,Ferrari,Bianchi,Pellegrini,Morel,Favre,Girard"},
+ "🇦🇹":{i:"MTFLPJHCSAW",n:"Gruber,Huber,Bauer,Wagner,Müller,Pichler,Steiner,Moser,Mayer,Hofer,Leitner,Berger,Fuchs,Eder,Fischer,Schmid,Winkler,Weber,Schwarz,Maier,Schneider,Reiter,Mayr,Schmidt,Wimmer,Egger,Brunner,Lang,Baumgartner,Auer,Binder,Lechner,Wolf,Wallner,Aigner,Ebner,Koller,Lehner,Haas,Schuster"},
+ "🇵🇱":{i:"MKPJAŁTRWSBZ",n:"Nowak,Kowalski,Wiśniewski,Wójcik,Kowalczyk,Kamiński,Lewandowski,Zieliński,Szymański,Woźniak,Dąbrowski,Kozłowski,Jankowski,Mazur,Kwiatkowski,Krawczyk,Piotrowski,Grabowski,Zając,Pawłowski,Michalski,Król,Wieczorek,Jabłoński,Wróbel,Nowakowski,Majewski,Olszewski,Stępień,Malinowski,Jaworski,Adamczyk,Dudek,Nowicki,Pawlak,Górski,Witkowski,Walczak,Sikora,Baran"},
+ "🇨🇿":{i:"JMPTVLOKDFS",n:"Novák,Svoboda,Novotný,Dvořák,Černý,Procházka,Kučera,Veselý,Horák,Němec,Marek,Pospíšil,Pokorný,Hájek,Král,Jelínek,Růžička,Beneš,Fiala,Sedláček,Doležal,Zeman,Kolář,Navrátil,Čermák,Urban,Vaněk,Blažek,Kříž,Kovář,Bartoš,Vlček,Polák,Musil,Šimek,Konečný,Holub,Štěpánek,Kopecký,Bureš"},
+ "🇵🇹":{i:"JMPRATFDSLC",n:"Silva,Santos,Ferreira,Pereira,Oliveira,Costa,Rodrigues,Martins,Jesus,Sousa,Fernandes,Gonçalves,Gomes,Lopes,Marques,Alves,Almeida,Ribeiro,Pinto,Carvalho,Teixeira,Moreira,Correia,Mendes,Nunes,Soares,Vieira,Monteiro,Cardoso,Rocha,Raposo,Neves,Coelho,Cruz,Cunha,Pires,Ramos,Reis,Simões,Antunes"},
+ "🇧🇪":{i:"JMPTLDAKNBS",n:"Peeters,Janssens,Maes,Jacobs,Mertens,Willems,Claes,Goossens,Wouters,De Smet,Dupont,Lambert,Dubois,Lejeune,Hendrickx,Aerts,Verhoeven,Desmet,Vandenberghe,Vermeulen,Michiels,Segers,Pauwels,Declercq,Leclercq,Gilson,Renard,Hermans,Smets,Lemmens,Van Damme,De Wolf,Bogaert,Adriaens,Martens,De Backer,Mathys,Bastiaens,Stevens,Delvaux"},
+ "🇨🇦":{i:"JMDAPCRTSGL",n:"Tremblay,Gagnon,Roy,Côté,Bouchard,Gauthier,Morin,Lavoie,Fortin,Gagné,Ouellet,Pelletier,Bélanger,Lévesque,Bergeron,Leblanc,Paquette,Girard,Simard,Boucher,MacDonald,Campbell,Stewart,Murphy,Fraser,Wilson,Clarke,Robertson,Cameron,Grant,Singh,Chen,Wong,Nguyen,Kowalchuk,Lambert,Poirier,Martel,Dufour,Thibault"},
+ "🇮🇪":{i:"JPSMCDEAKTO",n:"Murphy,Kelly,O'Sullivan,Walsh,Smith,O'Brien,Byrne,Ryan,O'Connor,O'Neill,O'Reilly,Doyle,McCarthy,Gallagher,Doherty,Kennedy,Lynch,Murray,Quinn,Moore,McLoughlin,O'Carroll,Connolly,Daly,O'Connell,Wilson,Dunne,Brennan,Burke,Collins,Campbell,Clarke,Johnston,Hughes,O'Donnell,Power,Fitzgerald,Keane,Nolan,Hayes"},
+ "🇳🇴":{i:"AJMTOKHLERS",n:"Hansen,Johansen,Olsen,Larsen,Andersen,Pedersen,Nilsen,Kristiansen,Jensen,Karlsen,Johnsen,Pettersen,Eriksen,Berg,Haugen,Hagen,Johannessen,Andreassen,Jacobsen,Dahl,Jørgensen,Henriksen,Lund,Halvorsen,Sørensen,Jakobsen,Moen,Gundersen,Iversen,Strand,Solberg,Svendsen,Eide,Knutsen,Martinsen,Paulsen,Bakken,Kristoffersen,Mathisen,Lie"},
+ "🇨🇴":{i:"JCLAMDFSGRE",n:"Rodríguez,Gómez,González,Martínez,García,López,Hernández,Sánchez,Ramírez,Pérez,Díaz,Torres,Vargas,Rojas,Moreno,Jiménez,Muñoz,Castro,Ortiz,Gutiérrez,Cardona,Arango,Restrepo,Londoño,Zapata,Osorio,Henao,Ospina,Giraldo,Montoya,Escobar,Cano,Duque,Mejía,Salazar,Valencia,Betancur,Quintero,Gaviria,Ríos"},
+ "🇷🇺":{i:"AMDSVIEKNPY",n:"Ivanov,Smirnov,Kuznetsov,Popov,Vasiliev,Petrov,Sokolov,Mikhailov,Novikov,Fedorov,Morozov,Volkov,Alekseev,Lebedev,Semenov,Egorov,Pavlov,Kozlov,Stepanov,Nikolaev,Orlov,Andreev,Makarov,Nikitin,Zakharov,Zaitsev,Solovyov,Borisov,Yakovlev,Grigoriev,Romanov,Vorobiev,Sergeev,Kuzmin,Frolov,Aleksandrov,Dmitriev,Korolev,Gusev,Titov"},
+ "🇮🇳":{i:"AKRSVPDJMNT",n:"Sharma,Verma,Gupta,Singh,Kumar,Patel,Reddy,Nair,Iyer,Menon,Rao,Joshi,Mehta,Shah,Chopra,Kapoor,Malhotra,Khanna,Bose,Das,Banerjee,Chatterjee,Mukherjee,Krishnan,Subramanian,Narayan,Pillai,Desai,Kulkarni,Deshmukh,Bhatia,Sethi,Chaudhary,Yadav,Mishra,Pandey,Agarwal,Saxena,Kaul,Daruvala"},
+ "🇮🇩":{i:"ARSDBMIWHYT",n:"Pratama,Santoso,Wijaya,Saputra,Kusuma,Hidayat,Setiawan,Nugroho,Hakim,Prabowo,Susanto,Gunawan,Utama,Firmansyah,Rahman,Siregar,Lubis,Nasution,Pangestu,Hartono,Kurniawan,Wibowo,Suryadi,Halim,Tan"},
+ "🇹🇭":{i:"PSKTNWACJ",n:"Srisai,Chaiyasit,Wongsakul,Pongpan,Rattanakul,Suksawat,Charoen,Thongchai,Boonmee,Kittisak,Sirichai,Prasert,Wattana,Somchai,Panyarachun,Chantarasri,Saetang,Phromsorn,Jaruwat"},
+ "🇨🇳":{i:"ZWLCJHYXSG",n:"Wang,Li,Zhang,Liu,Chen,Yang,Huang,Zhao,Wu,Zhou,Xu,Sun,Ma,Zhu,Hu,Guo,He,Lin,Gao,Luo,Zheng,Liang,Xie,Song,Tang,Han,Feng,Deng,Cao,Peng,Zeng,Xiao,Tian,Dong,Pan,Yuan,Cai,Jiang,Yu,Du"},
+ "🇰🇷":{i:"JHSMKYDLCP",n:"Kim,Lee,Park,Choi,Jung,Kang,Cho,Yoon,Jang,Lim,Han,Oh,Seo,Shin,Kwon,Hwang,Ahn,Song,Yoo,Hong,Jeon,Go,Moon,Yang,Son,Bae,Baek,Heo,Nam,Sim"},
+ "🇳🇿":{i:"JMDCBHSAWTL",n:"Smith,Wilson,Taylor,Brown,Williams,Anderson,Thompson,Walker,Mitchell,Murray,Clarke,Hunter,Ross,Henderson,Stewart,Cameron,McKenzie,Reid,Fraser,Campbell,Kerr,Ngata,Tamihana,Parata,Wiremu,Hohepa,Rangi,Te Rangi,Pomare,Tipene"},
+ "🇿🇦":{i:"JPDCMAGBWHT",n:"van der Merwe,Botha,Pretorius,Smit,du Plessis,Steyn,Jacobs,Venter,Coetzee,Kruger,Fourie,Nel,Joubert,van Zyl,Bezuidenhout,Louw,Lombard,Swart,van Wyk,Viljoen,Marais,du Toit,Barnard,Visser,Hattingh,Erasmus,Greyling,Meyer,Naidoo,Pillay"},
+ "🇻🇪":{i:"JMCAGRDLPEF",n:"Rodríguez,González,García,Pérez,Martínez,Hernández,Gómez,Díaz,Torres,Rivas,Ramos,Ortega,Colmenares,Briceño,Sandoval,Barrios,Arias,Montilla,Paredes,Zambrano,Bolívar,Salas,Rangel,Mendoza"},
+ "🇨🇱":{i:"JMCFPARDSGL",n:"González,Muñoz,Rojas,Díaz,Pérez,Soto,Contreras,Silva,Martínez,Sepúlveda,Morales,Rodríguez,López,Fuentes,Hernández,Torres,Araya,Flores,Espinoza,Valenzuela,Castillo,Tapia,Reyes,Gutiérrez,Castro,Pizarro,Álvarez,Vásquez,Sánchez,Fernández,Carrasco,Vargas,Cáceres,Cortés,Jara,Vergara,Rivera,Figueroa,Riquelme,García"},
+ "🇹🇷":{i:"MAEBHOSCYK",n:"Yılmaz,Kaya,Demir,Şahin,Çelik,Yıldız,Yıldırım,Öztürk,Aydın,Özdemir,Arslan,Doğan,Kılıç,Aslan,Çetin,Kara,Koç,Kurt,Özkan,Şimşek,Polat,Korkmaz,Çakır,Erdoğan,Güneş,Aksoy,Karaca,Tekin,Acar,Bulut"},
+ "🇭🇺":{i:"GPLMTBZAKSF",n:"Nagy,Kovács,Tóth,Szabó,Horváth,Varga,Kiss,Molnár,Németh,Farkas,Balogh,Papp,Takács,Juhász,Lakatos,Mészáros,Oláh,Simon,Rácz,Fekete,Szilágyi,Török,Fehér,Balázs,Gál,Kis,Szűcs,Kocsis,Pintér,Fodor"},
+ "🇷🇴":{i:"ACMDIGVBSNL",n:"Popescu,Ionescu,Popa,Stan,Dumitru,Gheorghe,Stoica,Constantin,Marin,Toma,Moldovan,Radu,Barbu,Nistor,Munteanu,Lungu,Tudor,Dinu,Cristea,Matei,Ilie,Preda,Neagu,Sandu"},
+ "🇸🇰":{i:"JMPTLRVDFBS",n:"Horváth,Kováč,Varga,Tóth,Nagy,Baláž,Szabó,Molnár,Balog,Lukáč,Kollár,Mikuš,Hudák,Urban,Greguš,Šimko,Kubík,Hanzel,Mráz,Valent"},
+ "🇺🇾":{i:"MJFAGSRLPEN",n:"Rodríguez,González,Fernández,Pérez,Martínez,Silva,García,Sosa,López,Díaz,Rivero,Cabrera,Suárez,Techera,Cardozo,Gadea,Rossi,Ferreira,Acosta,Tabárez"},
+ "🇵🇪":{i:"JCMLAFRDSEG",n:"Quispe,Flores,Rodríguez,García,Sánchez,Huamán,Mamani,López,Gonzales,Chávez,Ramírez,Vásquez,Rojas,Espinoza,Torres,Díaz,Ramos,Castillo,Gutiérrez,Salazar"},
+ "🇪🇨":{i:"JCMLAFRDSEG",n:"Pérez,Cevallos,Vera,Mendoza,Zambrano,Intriago,Loor,Cedeño,Zúñiga,Aguirre,Burbano,Palacios,Naranjo,Andrade,Villacís"},
+ "🇸🇬":{i:"JWLTCDKAMS",n:"Tan,Lim,Lee,Ng,Ong,Wong,Goh,Chua,Chan,Koh,Teo,Ang,Yeo,Tay,Ho,Low,Sim,Chong,Foo,Seah"},
+ "🇲🇾":{i:"AMNHSIRZFK",n:"Abdullah,Ismail,Rahman,Hassan,Yusof,Aziz,Ibrahim,Hamid,Ahmad,Lim,Tan,Wong,Lee,Raj,Nair,Kaur"},
+ "🇦🇪":{i:"AMKSHFYNKSO",n:"Al Mansoori,Al Nahyan,Al Suwaidi,Al Qasimi,Al Shamsi,Al Hashimi,Al Ketbi,Al Mazrouei,Al Falasi,Al Zaabi"},
+ "🇸🇦":{i:"AMKSYFNKAH",n:"Al Rajhi,Al Saud,Al Qahtani,Al Ghamdi,Al Otaibi,Al Dosari,Al Harbi,Al Zahrani,Al Shehri,Al Mutairi"},
+ "🇱🇹":{i:"JMADPRTVKG",n:"Kazlauskas,Petrauskas,Jankauskas,Stankevičius,Vasiliauskas,Žukauskas,Butkus,Paulauskas,Navickas,Kavaliauskas"},
+ "🇪🇪":{i:"JKMTAREPHS",n:"Tamm,Saar,Sepp,Mägi,Kask,Kukk,Rebane,Ilves,Pärn,Koppel,Oja,Lepik,Luik,Kaasik,Rand"},
+ "🇬🇷":{i:"GNKDPMIST",n:"Papadopoulos,Vlachos,Angelopoulos,Nikolaidis,Georgiou,Dimitriou,Karagiannis,Makris,Pappas,Vasilakis,Ioannou,Antoniou,Stavrou,Lazaridis,Konstantinou"},
+ "🇭🇷":{i:"ILMDNJTPKB",n:"Horvat,Kovačević,Babić,Marić,Jurić,Novak,Knežević,Vuković,Marković,Petrović,Matić,Tomić,Pavlović,Kovač,Božić"},
+ "🇷🇸":{i:"MNDSAPVLBJ",n:"Jovanović,Petrović,Nikolić,Marković,Đorđević,Stojanović,Ilić,Stanković,Pavlović,Milošević,Kovačević,Lazić,Todorović,Simić,Popović"},
+ "🇧🇬":{i:"GIPDNVSKAT",n:"Ivanov,Georgiev,Dimitrov,Petrov,Nikolov,Stoyanov,Todorov,Angelov,Kolev,Hristov,Iliev,Popov,Vasilev,Yordanov,Tsolov"},
+ "🇱🇺":{i:"JMPLCFRAGD",n:"Schmit,Weber,Muller,Hoffmann,Wagner,Thill,Reuter,Kremer,Schroeder,Welter,Klein,Scholtes"},
+ "🇲🇨":{i:"LMFPRCAGSD",n:"Rossi,Biancheri,Marquet,Rey,Orecchia,Bosio,Pastor,Garino,Cellario,Notari"},
+ "🇮🇱":{i:"DMYSAONIER",n:"Cohen,Levi,Mizrahi,Peretz,Biton,Dahan,Avraham,Friedman,Malka,Azulay"},
+ "🇦🇿":{i:"ARELMTNKFH",n:"Mammadov,Aliyev,Hasanov,Huseynov,Guliyev,Ismayilov,Rahimov,Abdullayev"},
+ "🇰🇿":{i:"ADNMBSYTKRE",n:"Nurmagambetov,Sadykov,Akhmetov,Kasymov,Bekov,Tulegenov,Omarov,Zhunusov"},
+ "🇺🇦":{i:"OVIDMSAKYN",n:"Melnyk,Shevchenko,Boyko,Kovalenko,Bondarenko,Tkachenko,Kovalchuk,Kravchenko,Oliynyk,Shevchuk,Polishchuk,Lysenko,Marchenko,Moroz,Savchenko"},
+ "🇮🇸":{i:"GJSMKAHBO",n:"Jónsson,Sigurðsson,Gudmundsson,Gunnarsson,Ólafsson,Einarsson,Magnússon,Kristjánsson,Stefánsson,Björnsson"},
+ "🇱🇧":{i:"MAJKRNTFSH",n:"Haddad,Khoury,Nassar,Saad,Hakim,Aoun,Gemayel,Frangieh,Karam,Chamoun"},
+ "🇵🇪b":null
+};
+(function(){
+  delete GEN_POOL["🇵🇪b"];
+  const have=new Set(GEN_NAMES.map(g=>g[0]+g[1]));
+  Object.keys(GEN_POOL).forEach(f=>{ GEN_POOL[f].n.split(",").forEach(s=>{ s=s.trim(); if(s && !have.has(s+f)){ have.add(s+f); GEN_NAMES.push([s,f]); } }); });
+})();
+/* inicial propia de cada país; si el país no está en la tabla, vale cualquiera */
+function genIni(flag){ const p=GEN_POOL[flag], s=(p&&p.i)||GEN_INITIALS; return s.charAt(irnd(0,s.length-1)); }
+
+/* qué países salen según la época: en los 80-90 casi no hay pilotos chinos, indios o saudíes; hoy sí */
+const GEN_RARO=new Set(["🇨🇳","🇮🇳","🇮🇩","🇹🇭","🇰🇷","🇲🇾","🇸🇬","🇦🇪","🇸🇦","🇹🇷","🇮🇱","🇦🇿","🇰🇿","🇱🇧","🇮🇸","🇱🇺","🇲🇨","🇪🇨","🇵🇪","🇺🇾","🇻🇪","🇧🇬","🇷🇴","🇸🇰","🇭🇷","🇷🇸","🇬🇷","🇱🇹","🇪🇪","🇺🇦"]);
+const GEN_MUY_RARO=new Set(["🇨🇳","🇮🇳","🇮🇩","🇹🇭","🇦🇪","🇸🇦","🇮🇱","🇦🇿","🇰🇿","🇱🇧"]);
+function genPeso(f){ if(!GEN_RARO.has(f)) return 1; let y=2026; try{ y=yearNow(); }catch(e){} let w=y<1995?.18:y<2008?.4:y<2020?.65:.9; if(GEN_MUY_RARO.has(f)) w*=.5; return w; }
+function genPick(list){ let g; for(let k=0;k<14;k++){ g=list[irnd(0,list.length-1)]; if(ch(genPeso(g[1]))) return g; } return g; }</script>
+<script>
+/* pilotos REALES que llegaron a la F1 (Ergast/Jolpica: fecha de nacimiento, nacionalidad, victorias y podios) y que, en cada época, todavía no habían debutado. Formato: [nombre, bandera, disponible desde, nacimiento, techo] */
+const REAL_ROOKIES={
+ "1980":[["R. Paletti","🇮🇹",1980,1958,80,1],["G. Amati","🇮🇹",1980,1959,80,1],["R. Ratzenberger","🇦🇹",1980,1960,80,1],["A. Campos","🇪🇸",1980,1960,82,1],["E. van de Poele","🇧🇪",1980,1961,82,1],["J-D. Délétraz","🇨🇭",1980,1963,82,1],["A. Chiesa","🇨🇭",1980,1964,80,1],["P. Chaves","🇵🇹",1980,1965,80,1],["N. Hattori","🇯🇵",1980,1966,80,1],["J. Järvilehto","🇫🇮",1980,1966,86,1],["D. Schiattarella","🇮🇹",1981,1967,82,1],["M. Bartels","🇩🇪",1982,1968,80,1],["P. Adams","🇧🇪",1983,1969,80,1],["O. Beretta","🇲🇨",1983,1969,80,1],["J-C. Boullion","🇫🇷",1983,1969,80,1],["P. de la Rosa","🇪🇸",1985,1971,86,1],["C. da Matta","🇧🇷",1987,1973,82,1],["T. Takagi","🇯🇵",1988,1974,82,1],["L. Burti","🇧🇷",1989,1975,82,1],["G. Mazzacane","🇦🇷",1989,1975,82,1],["J. Pablo Montoya","🇨🇴",1989,1975,92,1],["Y. Ide","🇯🇵",1989,1975,80,1],["A. Yoong","🇲🇾",1990,1976,82,1],["T. Enge","🇨🇿",1990,1976,80,1],["T. Monteiro","🇵🇹",1990,1976,86,1],["N. Karthikeyan","🇮🇳",1991,1977,82,1],["T. Sato","🇯🇵",1991,1977,86,1],["N. Kiesa","🇩🇰",1992,1978,80,1],["E. Bernoldi","🇧🇷",1992,1978,82,1],["J. Wilson","🇬🇧",1992,1978,80,1],["F. Montagny","🇫🇷",1992,1978,80,1],["A. Davidson","🇬🇧",1993,1979,82,1],["G. Pantano","🇮🇹",1993,1979,80,1],["M. Winkelhock","🇩🇪",1994,1980,80,1],["P. Friesacher","🇦🇹",1994,1980,80,1],["V. Liuzzi","🇮🇹",1994,1980,84,1],["A. Pizzonia","🇧🇷",1994,1980,82,1],["Z. Baumgartner","🇭🇺",1995,1981,82,1],["G. Bruni","🇮🇹",1995,1981,80,1],["A. Lotterer","🇩🇪",1995,1981,80,1],["H. Kovalainen","🇫🇮",1995,1981,89,1],["R. Doornbos","🇳🇱",1995,1981,82,1],["T. Glock","🇩🇪",1996,1982,86,1],["S. Yamamoto","🇯🇵",1996,1982,82,1],["C. Klien","🇦🇹",1997,1983,82,1],["A. Sutil","🇩🇪",1997,1983,84,1],["B. Senna","🇧🇷",1997,1983,82,1],["S. Speed","🇺🇸",1997,1983,82,1],["V. Petrov","🇷🇺",1998,1984,86,1],["L. di Grassi","🇧🇷",1998,1984,80,1],["K. Chandhok","🇮🇳",1998,1984,82,1],["R. Kubica","🇵🇱",1998,1984,89,1],["P. Maldonado","🇻🇪",1999,1985,89,1],["J. d'Ambrosio","🇧🇪",1999,1985,82,1],["K. Nakajima","🇯🇵",1999,1985,82,1],["G. van der Garde","🇳🇱",1999,1985,80,1],["N. Piquet Jr.","🇧🇷",1999,1985,86,1],["P. di Resta","🇬🇧",2000,1986,82,1],["R. Grosjean","🇫🇷",2000,1986,86,1],["K. Kobayashi","🇯🇵",2000,1986,86,1],["N. Hülkenberg","🇩🇪",2001,1987,86,1],["S. Buemi","🇨🇭",2002,1988,82,1],["B. Hartley","🇳🇿",2003,1989,82,1],["V. Bottas","🇫🇮",2003,1989,92,1],["J. Bianchi","🇫🇷",2003,1989,82,1],["D. Ricciardo","🇦🇺",2003,1989,92,1],["S. Pérez","🇲🇽",2004,1990,92,1],["M. Ericsson","🇸🇪",2004,1990,84,1],["J-É. Vergne","🇫🇷",2004,1990,82,1],["J. Alguersuari","🇪🇸",2004,1990,82,1],["C. Pic","🇫🇷",2004,1990,82,1],["A. Rossi","🇺🇸",2005,1991,80,1],["R. Merhi","🇪🇸",2005,1991,80,1],["M. Chilton","🇬🇧",2005,1991,82,1],["W. Stevens","🇬🇧",2005,1991,82,1],["E. Gutiérrez","🇲🇽",2005,1991,82,1],["K. Magnussen","🇩🇰",2006,1992,86,1],["F. Nasr","🇧🇷",2006,1992,82,1],["S. Vandoorne","🇧🇪",2006,1992,82,1],["A. Giovinazzi","🇮🇹",2007,1993,82,1],["R. Haryanto","🇮🇩",2007,1993,80,1],["D. Kvyat","🇷🇺",2008,1994,86,1],["C. Sainz","🇪🇸",2008,1994,89,1],["P. Wehrlein","🇩🇪",2008,1994,82,1],["J. Aitken","🇬🇧",2009,1995,80,1],["S. Sirotkin","🇷🇺",2009,1995,80,1],["N. Latifi","🇨🇦",2009,1995,82,1],["N. de Vries","🇳🇱",2009,1995,82,1],["E. Ocon","🇫🇷",2010,1996,89,1],["A. Albon","🇹🇭",2010,1996,86,1],["P. Fittipaldi","🇧🇷",2010,1996,80,1],["P. Gasly","🇫🇷",2010,1996,89,1],["C. Leclerc","🇲🇨",2011,1997,92,1],["M. Verstappen","🇳🇱",2011,1997,95,1],["L. Stroll","🇨🇦",2012,1998,86,1],["G. Russell","🇬🇧",2012,1998,92,1],["L. Norris","🇬🇧",2013,1999,92,1],["G. Zhou","🇨🇳",2013,1999,82,1],["N. Mazepin","🇷🇺",2013,1999,80,1],["Y. Tsunoda","🇯🇵",2014,2000,84,1],["L. Sargeant","🇺🇸",2014,2000,82,1],["O. Piastri","🇦🇺",2015,2001,92,1],["L. Lawson","🇳🇿",2016,2002,82,1],["J. Doohan","🇦🇺",2017,2003,82,1],["F. Colapinto","🇦🇷",2017,2003,82,1],["I. Hadjar","🇫🇷",2018,2004,86,1],["G. Bortoleto","🇧🇷",2018,2004,80,1],["O. Bearman","🇬🇧",2019,2005,82,1],["A.K. Antonelli","🇮🇹",2020,2006,92,1],["A. Lindblad","🇬🇧",2021,2007,80,1]],
+ "1990":[["M. Bartels","🇩🇪",1990,1968,80,1],["J-C. Boullion","🇫🇷",1990,1969,80,1],["P. Adams","🇧🇪",1990,1969,80,1],["O. Beretta","🇲🇨",1990,1969,80,1],["P. de la Rosa","🇪🇸",1990,1971,86,1],["C. da Matta","🇧🇷",1990,1973,82,1],["T. Takagi","🇯🇵",1990,1974,82,1],["J. Pablo Montoya","🇨🇴",1990,1975,92,1],["Y. Ide","🇯🇵",1990,1975,80,1],["L. Burti","🇧🇷",1990,1975,82,1],["G. Mazzacane","🇦🇷",1990,1975,82,1],["A. Yoong","🇲🇾",1990,1976,82,1],["T. Enge","🇨🇿",1990,1976,80,1],["T. Monteiro","🇵🇹",1990,1976,86,1],["T. Sato","🇯🇵",1991,1977,86,1],["N. Karthikeyan","🇮🇳",1991,1977,82,1],["F. Montagny","🇫🇷",1992,1978,80,1],["N. Kiesa","🇩🇰",1992,1978,80,1],["E. Bernoldi","🇧🇷",1992,1978,82,1],["J. Wilson","🇬🇧",1992,1978,80,1],["A. Davidson","🇬🇧",1993,1979,82,1],["G. Pantano","🇮🇹",1993,1979,80,1],["P. Friesacher","🇦🇹",1994,1980,80,1],["V. Liuzzi","🇮🇹",1994,1980,84,1],["M. Winkelhock","🇩🇪",1994,1980,80,1],["A. Pizzonia","🇧🇷",1994,1980,82,1],["Z. Baumgartner","🇭🇺",1995,1981,82,1],["G. Bruni","🇮🇹",1995,1981,80,1],["H. Kovalainen","🇫🇮",1995,1981,89,1],["R. Doornbos","🇳🇱",1995,1981,82,1],["A. Lotterer","🇩🇪",1995,1981,80,1],["S. Yamamoto","🇯🇵",1996,1982,82,1],["T. Glock","🇩🇪",1996,1982,86,1],["A. Sutil","🇩🇪",1997,1983,84,1],["C. Klien","🇦🇹",1997,1983,82,1],["S. Speed","🇺🇸",1997,1983,82,1],["B. Senna","🇧🇷",1997,1983,82,1],["L. di Grassi","🇧🇷",1998,1984,80,1],["K. Chandhok","🇮🇳",1998,1984,82,1],["V. Petrov","🇷🇺",1998,1984,86,1],["R. Kubica","🇵🇱",1998,1984,89,1],["J. d'Ambrosio","🇧🇪",1999,1985,82,1],["K. Nakajima","🇯🇵",1999,1985,82,1],["P. Maldonado","🇻🇪",1999,1985,89,1],["N. Piquet Jr.","🇧🇷",1999,1985,86,1],["G. van der Garde","🇳🇱",1999,1985,80,1],["K. Kobayashi","🇯🇵",2000,1986,86,1],["R. Grosjean","🇫🇷",2000,1986,86,1],["P. di Resta","🇬🇧",2000,1986,82,1],["N. Hülkenberg","🇩🇪",2001,1987,86,1],["S. Buemi","🇨🇭",2002,1988,82,1],["B. Hartley","🇳🇿",2003,1989,82,1],["J. Bianchi","🇫🇷",2003,1989,82,1],["V. Bottas","🇫🇮",2003,1989,92,1],["D. Ricciardo","🇦🇺",2003,1989,92,1],["S. Pérez","🇲🇽",2004,1990,92,1],["J. Alguersuari","🇪🇸",2004,1990,82,1],["M. Ericsson","🇸🇪",2004,1990,84,1],["C. Pic","🇫🇷",2004,1990,82,1],["J-É. Vergne","🇫🇷",2004,1990,82,1],["M. Chilton","🇬🇧",2005,1991,82,1],["W. Stevens","🇬🇧",2005,1991,82,1],["R. Merhi","🇪🇸",2005,1991,80,1],["A. Rossi","🇺🇸",2005,1991,80,1],["J. Palmer","🇬🇧",2005,1991,82,1],["E. Gutiérrez","🇲🇽",2005,1991,82,1],["F. Nasr","🇧🇷",2006,1992,82,1],["S. Vandoorne","🇧🇪",2006,1992,82,1],["K. Magnussen","🇩🇰",2006,1992,86,1],["R. Haryanto","🇮🇩",2007,1993,80,1],["A. Giovinazzi","🇮🇹",2007,1993,82,1],["P. Wehrlein","🇩🇪",2008,1994,82,1],["C. Sainz","🇪🇸",2008,1994,89,1],["D. Kvyat","🇷🇺",2008,1994,86,1],["S. Sirotkin","🇷🇺",2009,1995,80,1],["N. de Vries","🇳🇱",2009,1995,82,1],["J. Aitken","🇬🇧",2009,1995,80,1],["N. Latifi","🇨🇦",2009,1995,82,1],["A. Albon","🇹🇭",2010,1996,86,1],["E. Ocon","🇫🇷",2010,1996,89,1],["P. Fittipaldi","🇧🇷",2010,1996,80,1],["P. Gasly","🇫🇷",2010,1996,89,1],["M. Verstappen","🇳🇱",2011,1997,95,1],["C. Leclerc","🇲🇨",2011,1997,92,1],["L. Stroll","🇨🇦",2012,1998,86,1],["G. Russell","🇬🇧",2012,1998,92,1],["G. Zhou","🇨🇳",2013,1999,82,1],["L. Norris","🇬🇧",2013,1999,92,1],["N. Mazepin","🇷🇺",2013,1999,80,1],["Y. Tsunoda","🇯🇵",2014,2000,84,1],["L. Sargeant","🇺🇸",2014,2000,82,1],["O. Piastri","🇦🇺",2015,2001,92,1],["L. Lawson","🇳🇿",2016,2002,82,1],["F. Colapinto","🇦🇷",2017,2003,82,1],["J. Doohan","🇦🇺",2017,2003,82,1],["I. Hadjar","🇫🇷",2018,2004,86,1],["G. Bortoleto","🇧🇷",2018,2004,80,1],["O. Bearman","🇬🇧",2019,2005,82,1],["A.K. Antonelli","🇮🇹",2020,2006,92,1],["A. Lindblad","🇬🇧",2021,2007,80,1]],
+ "2000":[["N. Kiesa","🇩🇰",2000,1978,80,1],["F. Montagny","🇫🇷",2000,1978,80,1],["A. Davidson","🇬🇧",2000,1979,82,1],["M. Winkelhock","🇩🇪",2000,1980,80,1],["P. Friesacher","🇦🇹",2000,1980,80,1],["A. Lotterer","🇩🇪",2000,1981,80,1],["G. Bruni","🇮🇹",2000,1981,80,1],["Z. Baumgartner","🇭🇺",2000,1981,82,1],["R. Doornbos","🇳🇱",2000,1981,82,1],["S. Yamamoto","🇯🇵",2000,1982,82,1],["K. Chandhok","🇮🇳",2000,1984,82,1],["L. di Grassi","🇧🇷",2000,1984,80,1],["J. d'Ambrosio","🇧🇪",2000,1985,82,1],["K. Nakajima","🇯🇵",2000,1985,82,1],["G. van der Garde","🇳🇱",2000,1985,80,1],["N. Piquet Jr.","🇧🇷",2000,1985,86,1],["P. di Resta","🇬🇧",2000,1986,82,1],["B. Hartley","🇳🇿",2003,1989,82,1],["A. Rossi","🇺🇸",2005,1991,80,1],["J. Palmer","🇬🇧",2005,1991,82,1],["M. Chilton","🇬🇧",2005,1991,82,1],["R. Merhi","🇪🇸",2005,1991,80,1],["W. Stevens","🇬🇧",2005,1991,82,1],["S. Vandoorne","🇧🇪",2006,1992,82,1],["R. Haryanto","🇮🇩",2007,1993,80,1],["A. Giovinazzi","🇮🇹",2007,1993,82,1],["N. Latifi","🇨🇦",2009,1995,82,1],["N. de Vries","🇳🇱",2009,1995,82,1],["J. Aitken","🇬🇧",2009,1995,80,1],["P. Fittipaldi","🇧🇷",2010,1996,80,1],["N. Mazepin","🇷🇺",2013,1999,80,1],["L. Sargeant","🇺🇸",2014,2000,82,1],["J. Doohan","🇦🇺",2017,2003,82,1],["A.K. Antonelli","🇮🇹",2020,2006,92,1]],
+ "2010":[["W. Stevens","🇬🇧",2010,1991,82,1],["N. de Vries","🇳🇱",2010,1995,82,1],["J. Aitken","🇬🇧",2010,1995,80,1],["P. Fittipaldi","🇧🇷",2010,1996,80,1],["N. Mazepin","🇷🇺",2013,1999,80,1],["A.K. Antonelli","🇮🇹",2020,2006,92,1]]
+};
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════════
+   🏁 CONTRATOS EN TODAS LAS SERIES · Fórmula E, Super Fórmula (F2 Japonesa / F3000 Japonesa / Formula Nippon) y el resto
+   Hasta ahora solo el WEC, los rallies y la IndyCar tenían equipos que te ofrecían contrato (y te renovaban o te echaban).
+   Fórmula E, Super Fórmula, DTM, Supercars, NASCAR, Dakar, Turismo Carretera y Stock Car eran «un escalón sin equipos».
+   Ahora TODAS tienen una escalera con equipos reales de cada época y pilotos reales:
+     · Fórmula E y Super Fórmula: escritas a mano (equipos, marcas y pilotos de cada época).
+     · DTM, Supercars, NASCAR, Dakar, TC y Stock Car: se montan solas con los equipos y pilotos de cada época que ya
+       tenía el juego (ADV_EQUIPOS / ADV_ESTRELLAS por época), con valoraciones repartidas de mejor a peor.
+   Cada equipo te manda ofertas (primer contrato, renovación, otro equipo), igual que en la resistencia.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+(function(){
+  const E=(es,en)=>[es,en||es];
+  /* ─── FÓRMULA E ─── */
+  const FE_2026={ key:"fe", lab:E("Fórmula E","Formula E"), perf:79, minOvr:68, ageMin:18, marquee:true, overall:true,
+    sub:E("Monoplazas eléctricos Gen3 Evo en circuitos urbanos: energía, rebufo y estrategia","Gen3 Evo electric single-seaters on street circuits: energy, slipstream and strategy"),
+    teams:[AT("fe","Porsche Formula E Team","POR",88,"#B12B28","#F5F5F5",{brand:"Porsche"}),AT("fe","Jaguar TCS Racing","JAG",87,"#111111","#C8A24A",{brand:"Jaguar"}),
+           AT("fe","NEOM McLaren Formula E Team","MCL",84,"#FF8000","#0A2A6B",{brand:"McLaren"}),AT("fe","Nissan Formula E Team","NIS",82,"#C3002F","#111111",{brand:"Nissan"}),
+           AT("fe","DS Penske","DSP",80,"#9A7B3A","#111111",{brand:"DS"}),AT("fe","Envision Racing","ENV",78,"#6AC226","#111111",{brand:"Jaguar"}),
+           AT("fe","TAG Heuer Porsche Customer (Andretti)","AND",77,"#E30613","#0A2A6B",{brand:"Porsche"}),AT("fe","Mahindra Racing","MAH",75,"#D32030","#F5F5F5",{brand:"Mahindra"}),
+           AT("fe","Citroën Racing Formula E Team","CIT",73,"#C8102E","#F5F5F5",{brand:"Citroën"}),AT("fe","Lola Yamaha ABT Formula E Team","LYA",72,"#0A2A6B","#E30613",{brand:"Yamaha"}),
+           AT("fe","Cupra Kiro","KIR",70,"#7C4A2A","#111111",{brand:"Porsche"})],
+    stars:[["O. Rowland","🇬🇧"],["P. Wehrlein","🇩🇪"],["N. Cassidy","🇳🇿"],["M. Evans","🇳🇿"],["J. Dennis","🇬🇧"],["A. Félix da Costa","🇵🇹"],["T. Barnard","🇬🇧"],["M. Günther","🇩🇪"],
+           ["S. Vandoorne","🇧🇪"],["J-É. Vergne","🇫🇷"],["S. Buemi","🇨🇭"],["R. Frijns","🇳🇱"],["N. de Vries","🇳🇱"],["E. Mortara","🇨🇭"],["L. di Grassi","🇧🇷"],["Z. Maloney","🇧🇧"],
+           ["D. Ticktum","🇬🇧"],["P. Martí","🇪🇸"],["S. Fenestraz","🇦🇷"],["N. Müller","🇨🇭"],["F. Drugovich","🇧🇷"],["N. Nato","🇫🇷"],["J. Daruvala","🇮🇳"],["S. Bird","🇬🇧"]] };
+  const FE_RETRO={ key:"fe", lab:E("Fórmula E","Formula E"), perf:79, minOvr:66, ageMin:18, marquee:true, overall:true,
+    sub:E("Los primeros monoplazas eléctricos: Spark-Renault en circuitos urbanos","The first electric single-seaters: Spark-Renault on street circuits"),
+    teams:[AT("fe","Audi Sport ABT Schaeffler","ABT",86,"#BB0A30","#111111",{brand:"Audi"}),AT("fe","Renault e.dams","EDA",86,"#F5D800","#111111",{brand:"Renault"}),
+           AT("fe","DS Virgin Racing","DSV",80,"#9A7B3A","#E30613",{brand:"DS"}),AT("fe","Mahindra Racing","MAH",76,"#D32030","#F5F5F5",{brand:"Mahindra"}),
+           AT("fe","Techeetah","TEC",76,"#111111","#C8A24A",{brand:"Renault"}),AT("fe","Venturi","VEN",72,"#0A2A6B","#F5F5F5",{brand:"Venturi"}),
+           AT("fe","Dragon Racing","DRA",72,"#E30613","#111111",{brand:"Penske"}),AT("fe","Andretti Formula E","AND",72,"#E30613","#0A2A6B",{brand:"BMW"}),
+           AT("fe","NIO Formula E Team","NIO",68,"#1B3A8A","#F5F5F5",{brand:"NIO"}),AT("fe","Amlin Aguri","AGU",66,"#C8102E","#F5F5F5",{brand:"Aguri"}),
+           AT("fe","Jaguar Racing","JAG",70,"#111111","#C8A24A",{brand:"Jaguar"}),AT("fe","Team China Racing","CHI",62,"#C8102E","#F5D800")],
+    stars:[["L. di Grassi","🇧🇷"],["S. Buemi","🇨🇭"],["N. Piquet Jr.","🇧🇷"],["S. Bird","🇬🇧"],["J-É. Vergne","🇫🇷"],["D. Abt","🇩🇪"],["J. d'Ambrosio","🇧🇪"],["N. Heidfeld","🇩🇪"],
+           ["L. Duval","🇫🇷"],["B. Senna","🇧🇷"],["N. Prost","🇫🇷"],["A. Félix da Costa","🇵🇹"],["O. Turvey","🇬🇧"],["S. Sarrazin","🇫🇷"],["J. Alguersuari","🇪🇸"],["K. Chandhok","🇮🇳"],
+           ["S. Durán","🇲🇽"],["M. Evans","🇳🇿"],["P. Wehrlein","🇩🇪"],["E. Mortara","🇨🇭"],["T. Blomqvist","🇬🇧"],["M. Rockenfeller","🇩🇪"],["A. Lotterer","🇩🇪"],["S. Vandoorne","🇧🇪"]] };
+
+  /* ─── SUPER FÓRMULA y sus antepasadas ─── */
+  const SF_2026={ key:"sf", lab:E("Super Fórmula","Super Formula"), perf:81, minOvr:70, ageMin:18, marquee:true, overall:true,
+    sub:E("Monoplazas potentísimos en Japón: la gran vía de regreso a la F1","Ferociously fast single-seaters in Japan: the great route back to F1"),
+    teams:[AT("sf","Team Mugen","MUG",86,"#C8102E","#F5F5F5",{brand:"Honda"}),AT("sf","Kuo VANTELIN Team TOM'S","TOM",85,"#1C69D4","#F5F5F5",{brand:"Toyota"}),
+           AT("sf","Itochu Enex Team Impul","IMP",84,"#F5D800","#111111",{brand:"Toyota"}),AT("sf","Docomo Team Dandelion Racing","DAN",83,"#1B3A8A","#E30613",{brand:"Honda"}),
+           AT("sf","Kondo Racing","KON",80,"#E30613","#F5F5F5",{brand:"Toyota"}),AT("sf","Cerumo INGING","CER",79,"#E8761E","#111111",{brand:"Toyota"}),
+           AT("sf","San-Ei Gen with B-Max Racing","BMX",76,"#0A8F4F","#F5F5F5",{brand:"Honda"}),AT("sf","Nakajima Racing","NAK",76,"#111111","#C8102E",{brand:"Honda"}),
+           AT("sf","Team Goh","GOH",74,"#2A2A35","#F5D800",{brand:"Honda"}),AT("sf","KCMG","KCM",72,"#7C3AED","#F5F5F5",{brand:"Toyota"}),
+           AT("sf","ThreeBond Racing","TBR",70,"#0E7490","#F5F5F5",{brand:"Honda"}),AT("sf","Carlin / Stanley","CAR",68,"#0A2A6B","#F5D800",{brand:"Toyota"})],
+    stars:[["T. Nojiri","🇯🇵"],["R. Hirakawa","🇯🇵"],["S. Tsuboi","🇯🇵"],["N. Yamamoto","🇯🇵"],["K. Ohta","🇯🇵"],["U. Sasahara","🇯🇵"],["S. Fenestraz","🇦🇷"],["T. Makino","🇯🇵"],
+           ["K. Oshima","🇯🇵"],["I. Kimura","🇯🇵"],["T. Oyu","🇯🇵"],["Y. Sekiguchi","🇯🇵"],["A. Miyake","🇯🇵"],["G. Alesi","🇫🇷"],["J. Vips","🇪🇪"],["I. Fraga","🇧🇷"],
+           ["S. Nonaka","🇯🇵"],["R. Miyata","🇯🇵"],["T. Natori","🇯🇵"],["S. Koide","🇯🇵"],["Y. Iwasa","🇯🇵"],["L. Lawson","🇳🇿"]] };
+  const SF_2010={ key:"sf", lab:E("Formula Nippon · Super Fórmula","Formula Nippon · Super Formula"), perf:81, minOvr:68, ageMin:18, marquee:true, overall:true,
+    sub:E("La Formula Nippon y la Super Fórmula: el campeonato de monoplazas más rápido de Asia","Formula Nippon and Super Formula: Asia's fastest single-seater championship"),
+    teams:[AT("sf","Petronas Team TOM'S","TOM",86,"#1C69D4","#F5F5F5",{brand:"Toyota"}),AT("sf","Team Impul","IMP",85,"#F5D800","#111111",{brand:"Toyota"}),
+           AT("sf","Lenovo Team LeMans","LEM",82,"#E30613","#F5F5F5",{brand:"Toyota"}),AT("sf","Docomo Team Dandelion Racing","DAN",80,"#1B3A8A","#E30613",{brand:"Honda"}),
+           AT("sf","Team Mugen","MUG",78,"#C8102E","#F5F5F5",{brand:"Honda"}),AT("sf","Cerumo INGING","CER",78,"#E8761E","#111111",{brand:"Toyota"}),
+           AT("sf","Kondo Racing","KON",76,"#E30613","#F5F5F5",{brand:"Toyota"}),AT("sf","Nakajima Racing","NAK",76,"#111111","#C8102E",{brand:"Honda"}),
+           AT("sf","Team 5ZIGEN","5ZI",70,"#0A8F4F","#F5F5F5",{brand:"Toyota"}),AT("sf","Real Racing","REA",68,"#7C3AED","#F5F5F5",{brand:"Honda"})],
+    stars:[["A. Lotterer","🇩🇪"],["L. Duval","🇫🇷"],["K. Nakajima","🇯🇵"],["N. Yamamoto","🇯🇵"],["K. Hirate","🇯🇵"],["J. P. de Oliveira","🇧🇷"],["T. Izawa","🇯🇵"],["T. Nojiri","🇯🇵"],
+           ["H. Mutoh","🇯🇵"],["H. Ishiura","🇯🇵"],["Y. Kunimoto","🇯🇵"],["K. Oshima","🇯🇵"],["K. Tsukakoshi","🇯🇵"],["R. Quintarelli","🇮🇹"],["N. Karthikeyan","🇮🇳"],["A. Caldarelli","🇮🇹"],
+           ["Y. Ide","🇯🇵"],["T. Matsuda","🇯🇵"],["D. Ito","🇯🇵"],["T. Kogure","🇯🇵"],["B. Tréluyer","🇫🇷"],["S. Motoyama","🇯🇵"]] };
+  const SF_2000={ key:"sf", lab:E("Formula Nippon","Formula Nippon"), perf:80, minOvr:66, ageMin:18, marquee:true, overall:true,
+    sub:E("La Formula Nippon: monoplazas Lola/Reynard y Mugen-Honda en Japón, vivero de pilotos de F1","Formula Nippon: Lola/Reynard single-seaters with Mugen-Honda power, an F1 feeder"),
+    teams:[AT("sf","Team Impul","IMP",86,"#F5D800","#111111",{brand:"Toyota"}),AT("sf","Nakajima Racing","NAK",84,"#111111","#C8102E",{brand:"Honda"}),
+           AT("sf","TOM'S","TOM",82,"#1C69D4","#F5F5F5",{brand:"Toyota"}),AT("sf","Team 5ZIGEN","5ZI",80,"#0A8F4F","#F5F5F5",{brand:"Mugen"}),
+           AT("sf","Cerumo","CER",78,"#E8761E","#111111",{brand:"Toyota"}),AT("sf","Team LeMans","LEM",78,"#E30613","#F5F5F5",{brand:"Toyota"}),
+           AT("sf","Dandelion Racing","DAN",76,"#1B3A8A","#E30613",{brand:"Honda"}),AT("sf","Kondo Racing","KON",74,"#E30613","#F5F5F5",{brand:"Toyota"}),
+           AT("sf","Arta Nova","ART",70,"#7C3AED","#F5F5F5",{brand:"Mugen"}),AT("sf","Team Mugen","MUG",72,"#C8102E","#F5F5F5",{brand:"Honda"})],
+    stars:[["S. Motoyama","🇯🇵"],["T. Takagi","🇯🇵"],["R. Firman","🇬🇧"],["P. de la Rosa","🇪🇸"],["T. Coronel","🇳🇱"],["N. Hattori","🇯🇵"],["M. Krumm","🇩🇪"],["R. Lyons","🇬🇧"],
+           ["R. Fukuda","🇯🇵"],["T. Matsuda","🇯🇵"],["A. Lotterer","🇩🇪"],["B. Tréluyer","🇫🇷"],["S. Nakano","🇯🇵"],["T. Kaneishi","🇯🇵"],["Y. Ide","🇯🇵"],["R. Quintarelli","🇮🇹"],
+           ["S. Ara","🇯🇵"],["D. Ito","🇯🇵"],["K. Nakajima","🇯🇵"],["T. Kogure","🇯🇵"],["A. Suzuki","🇯🇵"],["T. Sato","🇯🇵"]] };
+  const SF_1990={ key:"sf", lab:E("F3000 Japonesa","Japanese F3000"), perf:79, minOvr:64, ageMin:18, marquee:true, overall:true,
+    sub:E("La F3000 Japonesa: el escalón que lanzó a Irvine, Hattori o Salo hacia la F1","Japanese F3000: the step that sent Irvine, Hattori or Salo towards F1"),
+    teams:[AT("sf","Team Nakajima","NAK",84,"#111111","#C8102E",{brand:"Honda"}),AT("sf","Team LeMans","LEM",82,"#E30613","#F5F5F5",{brand:"Mugen"}),
+           AT("sf","Cerumo","CER",80,"#E8761E","#111111",{brand:"Toyota"}),AT("sf","Team Impul","IMP",80,"#F5D800","#111111",{brand:"Nissan"}),
+           AT("sf","Heroes Racing","HER",76,"#0A2A6B","#F5F5F5",{brand:"Ford"}),AT("sf","Stellar International","STE",74,"#1C69D4","#F5F5F5",{brand:"Mugen"}),
+           AT("sf","Advan Sports Nova","NOV",74,"#C8102E","#F5D800",{brand:"Mugen"}),AT("sf","Mooncraft","MOO",70,"#7C3AED","#F5F5F5",{brand:"Judd"}),
+           AT("sf","Team 5ZIGEN","5ZI",70,"#0A8F4F","#F5F5F5",{brand:"Mugen"}),AT("sf","Hoshino Racing","HOS",68,"#2A2A35","#F5D800",{brand:"Nissan"})],
+    stars:[["K. Hoshino","🇯🇵"],["A. Suzuki","🇯🇵"],["M. Hasemi","🇯🇵"],["N. Hattori","🇯🇵"],["H. Ogawa","🇯🇵"],["E. Irvine","🇬🇧"],["R. Cheever","🇺🇸"],["M. Martini","🇮🇹"],
+           ["M. Krumm","🇩🇪"],["M. Greco","🇮🇹"],["T. Suzuki","🇯🇵"],["A. Nakaya","🇯🇵"],["T. Kurosawa","🇯🇵"],["K. Mogi","🇯🇵"],["S. Nakano","🇯🇵"],["U. Katayama","🇯🇵"],
+           ["M. Salo","🇫🇮"],["S. Nakajima","🇯🇵"],["T. Takagi","🇯🇵"],["J. Herbert","🇬🇧"],["P. de la Rosa","🇪🇸"],["M. Sekiya","🇯🇵"]] };
+  const SF_1980={ key:"sf", lab:E("F2 Japonesa","Japanese F2"), perf:78, minOvr:62, ageMin:18, marquee:true, overall:true,
+    sub:E("El Campeonato Japonés de F2 (March, Ralt, Maurer): la cantera de Nakajima y Hoshino","The All-Japan F2 Championship (March, Ralt, Maurer): the school of Nakajima and Hoshino"),
+    teams:[AT("sf","Hoshino Racing","HOS",84,"#2A2A35","#F5D800",{brand:"BMW"}),AT("sf","Nakajima Planning","NAK",84,"#111111","#C8102E",{brand:"Honda"}),
+           AT("sf","Team Impul","IMP",80,"#F5D800","#111111",{brand:"BMW"}),AT("sf","Heroes Racing","HER",76,"#0A2A6B","#F5F5F5",{brand:"BMW"}),
+           AT("sf","Moon Craft","MOO",74,"#7C3AED","#F5F5F5",{brand:"Honda"}),AT("sf","Team LeMans","LEM",74,"#E30613","#F5F5F5",{brand:"Toyota"}),
+           AT("sf","Cox Racing","COX",70,"#1C69D4","#F5F5F5",{brand:"Honda"}),AT("sf","Advan Racing","ADV",68,"#C8102E","#F5D800",{brand:"BMW"})],
+    stars:[["K. Hoshino","🇯🇵"],["S. Nakajima","🇯🇵"],["M. Hasemi","🇯🇵"],["K. Matsumoto","🇯🇵"],["K. Takahashi","🇯🇵"],["N. Takahara","🇯🇵"],["M. Sekiya","🇯🇵"],["G. Lees","🇬🇧"],
+           ["T. Ikuzawa","🇯🇵"],["H. Fushida","🇯🇵"],["S. Johansson","🇸🇪"],["J. Lammers","🇳🇱"],["T. Fabi","🇮🇹"],["R. Guerrero","🇨🇴"]] };
+  const FE_BY={ "2026":FE_2026, "2010":FE_RETRO, "2000":FE_RETRO, "1990":FE_RETRO, "1980":FE_RETRO };
+  const SF_BY={ "2026":SF_2026, "2010":SF_2010, "2000":SF_2000, "1990":SF_1990, "1980":SF_1980 };
+
+  /* ─── 2026: series que no tenían equipos en la lista de HOY (los de las demás épocas ya los traían) ─── */
+  Object.assign(ADV_EQUIPOS,{
+    supercars:["Triple Eight Race Engineering","Walkinshaw Andretti United","Tickford Racing","Team 18","Grove Racing","Erebus Motorsport","Matt Stone Racing","PremiAir Racing","Brad Jones Racing","Blanchard Racing Team"],
+    tc:["Canapino Sport","Alifraco Sport","Maquin Parts Racing","Dole Racing","Las Toscas Racing","Martínez Competición","Donto Racing","JP Racing","CAR Racing","Catalán Magni Motorsport"],
+    brasil:["Blau Motorsport","Ipiranga Racing","Cavaleiro Sports","Full Time Sports","Eurofarma RC","A. Mattheis Vogel Motorsport","Hero Motorsport","KTF Sports","Crown Racing","Bardahl Hot Car"]});
+  ADV_EQUIPOS.nascar=ADV_EQUIPOS.nascar.concat(["Richard Childress Racing","RFK Racing","Wood Brothers Racing"]);
+  ADV_EQUIPOS.dtm=ADV_EQUIPOS.dtm.concat(["Schubert Motorsport","Winward Racing","Mücke Motorsport"]);
+  ADV_EQUIPOS.dakar=ADV_EQUIPOS.dakar.concat(["X-raid Mini JCW Team","Century Racing","Bahrain Raid Xtreme"]);
+  /* ─── las demás series: escalera de un peldaño montada con los equipos y pilotos de cada época ─── */
+  const PAL=[["#E30613","#F5F5F5"],["#1C69D4","#F5F5F5"],["#0A8F4F","#F5F5F5"],["#F5D800","#111111"],["#111111","#E30613"],["#FF8000","#0A2A6B"],["#7C3AED","#F5F5F5"],
+             ["#0E7490","#F5F5F5"],["#C8102E","#F5D800"],["#1B3A8A","#F5D800"],["#2A2A35","#F5D800"],["#E6A01E","#111111"]];
+  const abbr=n=>{ const w=String(n).replace(/[^A-Za-zÀ-ÿ0-9 ]/g,"").split(/\s+/).filter(Boolean); return (w.length>1?w.map(x=>x[0]).join(""):String(n)).slice(0,3).toUpperCase(); };
+  const NAT={nascar:"🇺🇸",supercars:"🇦🇺",brasil:"🇧🇷",tc:"🇦🇷",dtm:"🇩🇪",dakar:"🇫🇷"};
+  const ESTR=(era,k)=> era==="2010"?ADV_ESTRELLAS_2010[k] : era==="2026"?ADV_ESTRELLAS[k] : (ADV_ESTRELLAS_ERA[era]&&ADV_ESTRELLAS_ERA[era][k]) || ADV_ESTRELLAS[k];
+  const EQUI=(era,k)=> era==="2010"?ADV_EQUIPOS_2010[k] : era==="2026"?ADV_EQUIPOS[k] : (ADV_EQUIPOS_ERA[era]&&ADV_EQUIPOS_ERA[era][k]) || ADV_EQUIPOS[k];
+  function auto(era,k){
+    const sr=SERIES[k]; if(!sr) return null;
+    const names=(EQUI(era,k)||[]).slice(); if(!names.length) return null;
+    const stars=(ESTR(era,k)||[]).map(x=>x.slice());
+    const nat=NAT[k]; const used=new Set(stars.map(x=>x[0]));
+    let guard=0; while(stars.length<14 && guard++<80){ const g=GEN_NAMES.filter(x=>x[1]===nat); const pick=g.length?g[irnd(0,g.length-1)]:genPick(GEN_NAMES); const n=genIni(pick[1])+". "+pick[0]; if(!used.has(n)){ used.add(n); stars.push([n,pick[1]]); } }
+    const nT=names.length, base=sr.perf+7, step=nT>1?14/(nT-1):0;
+    const teams=names.map((n,i)=>{ const c=PAL[i%PAL.length]; return AT("main",n,abbr(n),Math.round(base-i*step),c[0],c[1]); });
+    return { key:"main", lab:[sr.name, sr.nameEn||sr.name], perf:sr.perf, minOvr:62, ageMin:k==="dakar"?21:18, marquee:true, overall:true,
+             sub:[sr.sub, sr.subEn||sr.sub], teams, stars };
+  }
+  /* se instalan en cada época: lo escrito a mano manda; lo que falta se monta solo */
+  Object.keys(ADV_LADDER_ERAS).forEach(era=>{
+    const E0=ADV_LADDER_ERAS[era];
+    if(!E0.formulae) E0.formulae={ tiers:[ JSON.parse(JSON.stringify(FE_BY[era]||FE_RETRO)) ] };
+    if(!E0.superformula) E0.superformula={ tiers:[ SF_BY[era] ] };
+    Object.keys(SERIES).forEach(k=>{ if(E0[k]) return; const t=auto(era,k); if(t) E0[k]={ tiers:[t] }; });
+    Object.keys(E0).forEach(k=>{ E0[k].__key=k; });
+  });
+})();
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ⏱️ TIEMPOS POR CIRCUITO · cada circuito, categoría y año tiene SU vuelta y SUS sectores
+   ═══════════════════════════════════════════════════════════════════════════════ */
+const WK_POLE={
+ adelaide:[[1994,76.179]],
+ albertpark:[[1996,92.371],[1997,89.369],[1998,90.01],[1999,90.462],[2000,90.556],[2003,87.173],[2004,84.408],[2005,88.279],[2006,85.229],[2007,86.072],[2008,86.714],[2009,86.202],[2010,83.919],[2011,83.529],[2012,84.922],[2013,87.407],[2015,86.327],[2016,83.837],[2017,82.188],[2018,81.164],[2019,80.486],[2022,77.868],[2023,76.732],[2024,75.915],[2025,75.096]],
+ bahrain:[[2004,90.139],[2005,92.054],[2006,91.431],[2007,92.652],[2008,93.096],[2009,93.431],[2012,92.422],[2013,92.33],[2014,93.185],[2015,92.571],[2016,89.493],[2017,88.769],[2018,87.958],[2019,87.866],[2020,87.264],[2021,88.997],[2022,90.558],[2023,89.708],[2024,89.179],[2025,89.841]],
+ baku:[[2016,102.758],[2017,100.593],[2018,101.498],[2019,100.495],[2021,101.218],[2022,101.359],[2023,100.203],[2024,101.365],[2025,101.117]],
+ barcelona:[[1994,81.908],[1995,81.452],[1996,80.65],[1997,76.525],[2003,77.762],[2004,75.022],[2005,75.038],[2006,74.648],[2007,81.421],[2008,81.813],[2009,80.527],[2010,79.995],[2011,80.981],[2012,81.707],[2013,80.718],[2014,85.232],[2015,84.681],[2016,82],[2017,79.149],[2018,76.173],[2019,75.406],[2020,75.584],[2021,76.741],[2022,78.75],[2023,72.272],[2024,71.383],[2025,71.546]],
+ buddh:[[2011,84.178],[2012,85.283],[2013,84.119]],
+ buenosaires:[[1996,90.346],[1997,84.473],[1998,85.852]],
+ cota:[[2012,95.657],[2013,96.338],[2014,96.067],[2016,94.999],[2017,93.108],[2018,92.237],[2019,92.029],[2021,92.91],[2022,94.356],[2023,94.723],[2024,92.33],[2025,92.51]],
+ estoril:[[1994,80.608],[1995,80.537]],
+ fuji:[[2007,85.368],[2008,78.404]],
+ hockenheim:[[2003,75.167],[2004,73.306],[2005,74.32],[2006,74.07],[2008,75.666],[2010,73.791],[2014,76.54],[2016,74.363],[2018,71.212],[2019,71.767]],
+ hockenheimold:[[1994,103.582],[1995,104.385],[1997,101.873],[1998,101.838]],
+ hungaroring:[[1994,78.258],[1995,76.982],[2003,81.688],[2004,79.146],[2005,79.882],[2006,79.599],[2007,79.674],[2008,80.899],[2009,81.569],[2010,78.773],[2011,79.815],[2012,80.953],[2013,79.388],[2014,82.715],[2015,82.02],[2016,79.965],[2017,76.276],[2019,74.572],[2020,73.447],[2021,75.419],[2022,77.377],[2023,76.609],[2024,75.227],[2025,75.372]],
+ imola:[[1994,81.548],[1995,87.274],[1996,86.89],[1997,83.303],[1999,86.362],[2000,84.714],[2003,82.327],[2004,79.753],[2005,82.994],[2006,82.795],[2020,73.609],[2021,74.411],[2022,87.999],[2024,74.746],[2025,74.67]],
+ indianapolisrc:[[2001,71.708],[2003,71.67],[2004,70.223],[2005,70.625],[2006,70.832],[2007,72.331]],
+ interlagos:[[1994,75.962],[1996,78.111],[1997,76.004],[1998,77.092],[1999,76.568],[2003,73.807],[2004,70.646],[2005,71.988],[2006,70.68],[2007,71.931],[2008,72.368],[2010,74.47],[2011,71.918],[2012,72.458],[2014,70.023],[2015,71.282],[2016,70.736],[2017,68.322],[2018,67.281],[2019,67.508],[2021,67.934],[2022,71.674],[2023,70.727],[2025,69.511]],
+ istanbul:[[2005,86.797],[2006,86.907],[2007,87.329],[2008,87.617],[2009,88.316],[2010,86.295],[2011,85.049],[2021,82.868]],
+ jeddah:[[2021,87.511],[2022,88.2],[2023,88.265],[2024,87.472],[2025,87.294]],
+ jerez:[[1994,82.762]],
+ lasvegas:[[2023,92.726],[2024,92.312],[2025,107.934]],
+ lusail:[[2021,80.827],[2023,83.778],[2024,80.52],[2025,79.387]],
+ magnycours:[[1994,76.282],[1995,77.225],[1997,74.548],[2003,75.019],[2004,73.698],[2005,74.412],[2006,75.493],[2007,75.034],[2008,76.449]],
+ mexico:[[2015,79.48],[2016,78.704],[2017,76.488],[2018,74.759],[2019,74.758],[2021,75.875],[2022,77.775],[2023,77.166],[2024,75.946],[2025,75.586]],
+ miami:[[2022,88.796],[2023,86.841],[2024,87.241]],
+ monaco:[[1996,80.356],[1997,78.216],[2003,75.259],[2004,73.985],[2005,74.858],[2006,73.962],[2007,75.726],[2008,75.787],[2009,74.902],[2010,73.826],[2011,73.556],[2012,74.301],[2013,73.876],[2014,75.989],[2015,75.098],[2016,73.622],[2017,72.178],[2018,70.81],[2019,70.166],[2021,70.346],[2022,71.376],[2023,71.365],[2024,70.27],[2025,69.954]],
+ montreal:[[1997,78.095],[2003,75.529],[2004,72.275],[2005,75.217],[2006,74.942],[2007,75.707],[2008,77.886],[2010,75.105],[2011,73.014],[2012,73.784],[2014,74.874],[2015,74.393],[2016,72.812],[2017,71.459],[2018,70.764],[2019,70.24],[2022,81.299],[2024,72],[2025,70.899]],
+ monza:[[1994,83.844],[1995,84.462],[2003,80.963],[2004,80.089],[2005,80.878],[2006,81.484],[2007,81.997],[2009,84.066],[2010,81.962],[2011,82.275],[2012,84.01],[2013,83.755],[2014,84.109],[2015,83.397],[2016,81.135],[2018,79.119],[2019,79.307],[2020,78.887],[2021,79.555],[2022,80.161],[2023,80.294],[2024,79.327],[2025,78.792]],
+ mugello:[[2020,75.144]],
+ nurburgring:[[1995,78.738],[1996,78.941],[2003,91.523],[2004,88.351],[2005,90.081],[2006,89.816],[2007,91.45],[2009,92.23],[2011,90.079],[2013,89.398],[2020,85.269]],
+ okayama:[[1994,70.218],[1995,74.013]],
+ paulricard:[[2018,90.029],[2019,88.319],[2021,89.99],[2022,90.872]],
+ portimao:[[2020,76.652],[2021,78.348]],
+ redbullring:[[2003,69.15],[2014,68.759],[2015,68.455],[2016,67.922],[2017,64.251],[2018,63.13],[2019,63.003],[2021,63.72],[2022,64.984],[2023,64.391],[2024,64.314],[2025,63.971]],
+ sepang:[[2002,95.266],[2003,97.044],[2004,93.074],[2005,95.09],[2006,93.84],[2007,95.043],[2008,95.748],[2009,95.181],[2011,94.87],[2012,96.219],[2016,92.85],[2017,90.076]],
+ shanghai:[[2004,94.012],[2005,94.08],[2007,95.908],[2008,96.303],[2009,96.184],[2010,94.558],[2011,93.706],[2012,95.121],[2013,94.484],[2015,95.782],[2016,95.402],[2017,91.678],[2018,91.095],[2019,91.547],[2024,93.66],[2025,90.641]],
+ silverstone:[[1994,84.96],[1995,88.124],[1997,81.598],[1998,83.271],[2000,85.703],[2003,81.209],[2004,78.233],[2005,79.905],[2006,80.253],[2007,79.997],[2008,81.049],[2009,79.509],[2010,89.615],[2011,90.399],[2013,89.607],[2015,92.248],[2016,89.287],[2017,86.6],[2018,85.892],[2019,85.093],[2020,85.154],[2021,86.134],[2023,86.72],[2024,85.819],[2025,84.892]],
+ singapore:[[2008,104.801],[2009,107.891],[2010,105.39],[2011,104.381],[2012,106.362],[2013,102.841],[2014,105.681],[2015,103.885],[2016,102.584],[2017,99.491],[2018,96.015],[2019,96.217],[2022,109.412],[2023,90.984],[2024,89.525],[2025,89.158]],
+ sochi:[[2014,98.513],[2015,97.113],[2016,95.417],[2017,93.194],[2018,91.387],[2019,91.628],[2020,91.304],[2021,101.993]],
+ spa:[[1995,114.392],[1998,108.682],[2004,116.232],[2005,106.391],[2007,105.994],[2008,107.338],[2009,106.308],[2010,105.778],[2011,108.298],[2012,107.573],[2015,107.197],[2016,106.744],[2017,102.553],[2019,102.519],[2020,101.252],[2022,103.665],[2023,106.168],[2024,113.159],[2025,100.562]],
+ suzuka:[[1994,97.209],[1995,98.023],[2000,95.825],[2002,91.317],[2003,91.713],[2004,93.542],[2006,89.599],[2009,92.16],[2010,90.785],[2011,90.466],[2012,90.839],[2013,90.915],[2014,92.506],[2015,92.584],[2016,90.647],[2017,87.319],[2018,87.76],[2019,87.064],[2022,89.304],[2023,88.877],[2024,88.197],[2025,86.983]],
+ valencia:[[2008,98.989],[2009,99.489],[2010,97.587],[2011,96.975],[2012,98.086]],
+ yasmarina:[[2009,100.948],[2010,99.394],[2011,98.481],[2012,100.63],[2013,99.957],[2014,100.48],[2015,100.237],[2016,98.755],[2017,96.231],[2018,94.794],[2019,94.779],[2020,95.246],[2021,82.109],[2022,83.824],[2023,83.445],[2024,82.595],[2025,82.207]],
+ yeongam:[[2010,95.585],[2011,95.82],[2012,97.242],[2013,97.202]],
+ zandvoort:[[2021,68.885],[2022,70.342],[2023,70.567],[2024,69.673],[2025,68.662]]
+};
+
+/* Las poles de arriba son REALES: la mejor vuelta de la clasificación de cada GP, año a año (Ergast/Jolpica, 1994-2025). Las lluviosas
+   o de otro trazado se quitaron (más de un 10 % sobre la mediana del circuito). Debajo, lo que no hay en esa base:
+   · WK_HIST: poles de los 80 y principios de los 90 (y de circuitos que ya no existen: Dijon, Jarama, Österreichring, Zolder, Kyalami viejo,
+     Brands Hatch GP, Las Vegas-Caesars, Detroit, Phoenix urbano, Long Beach 80, México viejo, Hockenheim largo…), de memoria y a ±1-2 s.
+   · WK_REF: para circuitos donde no corrió la F1 (Barber, Laguna Seca, Road America, Bathurst, Sandown, Norisring, Motegi…), el tiempo de
+     un monoplaza de F1 «equivalente» (cada categoría lo multiplica por su factor: IndyCar ×1,02, Hypercar ×1,17, Supercars ×1,28…).
+   · Los TRES SECTORES salen de la forma del propio minimapa: una simulación de vuelta (curvas = velocidad máxima por radio, frenada y
+     aceleración) reparte el tiempo entre el primer, segundo y tercer tercio del trazado, así que Mónaco, Monza o Mugello ya no se
+     parten igual. Óvalos, Le Mans y rallies tienen reparto propio. */
+const WK_HIST={
+  adelaide:[[1985,79.8],[1990,77],[1993,73.5]],
+  lasvegas81:[[1981,77.5],[1982,77]],
+  phoenixf1:[[1989,89.5],[1990,88.3],[1991,81]],
+  detroitf1:[[1982,105],[1988,99]],
+  longbeach80:[[1980,80],[1983,82]],
+  hockenheimold:[[1980,108],[1985,105],[1989,100.5],[1991,99]],
+  mexicoold:[[1986,78],[1987,76],[1990,76.5],[1992,76.3]],
+  osterreichring:[[1980,94.7],[1985,88],[1987,83.4]],
+  dijon:[[1981,62.5],[1982,60.9],[1984,62]],
+  jarama:[[1980,72.1],[1981,73.2]],
+  brandshatch:[[1980,71.3],[1986,66.8]],
+  zolder:[[1980,80.6],[1984,72.5]],
+  kyalami:[[1980,70.5],[1982,66.4],[1985,64],[1991,64],[1992,75.3]],
+  jacarepagua:[[1981,96],[1983,94],[1988,87.5],[1989,86.5]],
+  interlagos:[[1980,131.8],[1990,76.9],[1993,75.5]],
+  buenosaires:[[1980,104.1],[1981,103]],
+  watkinsglen:[[1980,94.1]],
+  estoril:[[1984,80.5],[1986,78],[1990,74]],
+  imola:[[1980,95.2],[1985,86],[1988,82],[1990,83.2]],
+  monza:[[1980,94],[1985,86],[1987,83.3],[1990,81.1],[1993,81]],
+  monaco:[[1980,85.2],[1985,81.5],[1988,83.9],[1990,81.5],[1993,81]],
+  montreal:[[1980,88.6],[1985,85],[1988,80],[1990,79.3],[1993,79.3]],
+  hungaroring:[[1986,89.5],[1988,85],[1991,79.9]],
+  spa:[[1985,113.5],[1990,109.4]],
+  silverstone:[[1980,71],[1985,65.6],[1990,67.5],[1991,79.9],[1993,79.8]],
+  magnycours:[[1991,75.5],[1993,74.5]],
+  paulricard:[[1980,101],[1985,103],[1990,64]],
+  suzuka:[[1987,98.5],[1990,97],[1993,96.5]],
+  zandvoort:[[1980,75],[1985,69.5]],
+  barcelona:[[1991,76.5],[1993,75.8]],
+  jerez:[[1986,83],[1990,81.5]]
+};
+const WK_REF={   /* F1-equivalente moderno (s) en circuitos sin F1 reciente */
+  barber:65,lagunaseca:68,longbeach:64,stpete:60,detroit:71,roadamerica:99,sebring:106,watkinsglen:98,aragon:94,motegi:88,autopolis:80,
+  norisring:40.6,lausitzring:66,bathurst:96.5,sandown:53.5,phillipisland:69,surfers:55,rafaela:52,termas:68,marplata:65,goiania:67,curitiba:62,velopark:49,
+  madrid:88,hanoi:92,santiago:62,nuevayork:60,chicago:58,midohio:67,donington:68,zolder:72,lemans:175,jerez:83,lusail:79.4
+};
+const WK_OVAL={   /* óvalos: [vuelta de NASCAR, vuelta de IndyCar] y reparto de los 3 sectores (giros 1-2 · recta · giros 3-4) */
+  daytona:[47,null,[.355,.29,.355]],talladega:[49.6,null,[.355,.29,.355]],charlotte:[28.9,26.5,[.345,.31,.345]],bristol:[14.3,null,[.36,.28,.36]],
+  martinsville:[19.7,null,[.33,.34,.33]],phoenix:[26.6,20.2,[.35,.30,.35]],indianapolis:[48,38.6,[.34,.32,.34]]
+};
+const WK_KART={lonato:46.9,genk:50.6,"le mans":55.2,zuera:51.4,portimao:57.1,sarno:49.8};
+const WK_FE={monaco:89,berlin:63,berlin2:63,jeddah:67,mexico:72,"ciudad de mexico":72,tokyo:64,tokio:64,london:55,londres:55,miami:65};
+const WK_RALLY=[[/monte|montecarlo|monte carlo/,215],[/suecia|sweden/,178],[/safari|kenia|kenya/,238],[/portugal/,208],[/acropolis|acropolis|grecia|greece/,222],[/finlandia|finland|lagos|lakes/,152],
+  [/cerde|sardinia|italia/,218],[/japon|japan/,192],[/chile/,198],[/corcega|corsica/,200],[/nueva zelanda|new zealand/,185],[/gran bretana|great britain|gales|wales|rac/,180],
+  [/australia/,178],[/catalunya|cataluna|espana|spain/,204],[/alemania|germany/,208],[/argentina/,195],[/marfil|ivory/,240],[/mexico/,200],[/croacia|croatia/,206],[/turqu/,230],[/polonia|poland/,168],
+  [/semana 1|week 1/,305],[/semana 2|week 2/,330]];
+/* sectores por la forma del circuito (generados con la simulación de vuelta sobre el propio minimapa) */
+const WK_SEC={adelaide:[.312,.376,.312],albertpark:[.348,.288,.364],aragon:[.323,.287,.39],bahrain:[.325,.338,.337],baku:[.365,.383,.252],barber:[.332,.322,.346],barcelona:[.297,.354,.349],brandshatch:[.383,.329,.287],buddh:[.386,.31,.305],buenosaires:[.319,.32,.361],cota:[.325,.294,.381],dijon:[.352,.319,.329],estoril:[.37,.337,.293],fuji:[.279,.334,.387],hockenheim:[.289,.355,.356],hungaroring:[.325,.346,.329],imola:[.315,.359,.326],interlagos:[.309,.39,.3],istanbul:[.343,.334,.323],jacarepagua:[.334,.296,.37],jarama:[.387,.314,.299],jeddah:[.377,.312,.311],jerez:[.337,.296,.367],kyalami:[.317,.334,.349],lagunaseca:[.364,.335,.301],lasvegas:[.408,.307,.285],lausitzring:[.313,.336,.351],longbeach:[.291,.326,.382],lusail:[.326,.353,.322],madrid:[.335,.313,.352],magnycours:[.275,.358,.367],marplata:[.356,.323,.321],mexico:[.278,.374,.347],miami:[.279,.298,.423],monaco:[.357,.369,.274],montreal:[.352,.311,.336],monza:[.343,.361,.296],motegi:[.296,.313,.391],mugello:[.341,.335,.324],nurburgring:[.356,.318,.326],osterreichring:[.327,.327,.346],paulricard:[.33,.306,.364],phillipisland:[.297,.339,.363],portimao:[.384,.33,.286],redbullring:[.335,.329,.336],roadamerica:[.318,.294,.388],sandown:[.287,.375,.338],sebring:[.327,.333,.339],sepang:[.301,.331,.369],shanghai:[.326,.378,.296],silverstone:[.289,.349,.362],singapore:[.299,.393,.308],spa:[.311,.371,.318],suzuka:[.352,.355,.294],termas:[.345,.332,.323],watkinsglen:[.287,.343,.37],yasmarina:[.33,.292,.378],yeongam:[.369,.351,.28],zandvoort:[.34,.335,.325],zolder:[.336,.315,.349],lemans:[.285,.40,.315],hanoi:[.348,.295,.357]};
+const WK_VAR={lasvegas81:"lasvegas",phoenixf1:"phoenix",detroitf1:"detroit",hockenheimold:"hockenheim",indianapolisrc:"indianapolis",longbeach80:"longbeach",mexicoold:"mexico"};
+
+function wkHash(s){ let h=0; s=String(s||""); for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return h; }
+function wkPoleF1(key,y){
+  const pts=(WK_POLE[key]||[]).concat(WK_HIST[key]||[]).sort((a,b)=>a[0]-b[0]);
+  if(!pts.length) return null;
+  if(y<=pts[0][0]) return pts[0][1]*(1+Math.min(.12,.02*(pts[0][0]-y)));
+  if(y>=pts[pts.length-1][0]) return pts[pts.length-1][1];
+  for(let i=1;i<pts.length;i++){ if(y<=pts[i][0]){ const a=pts[i-1], b=pts[i]; return a[1]+(b[1]-a[1])*(y-a[0])/Math.max(1,b[0]-a[0]); } }
+  return pts[pts.length-1][1];
+}
+/* factor de cada categoría respecto a la pole de F1 de ese mismo año en el mismo circuito */
+function wkClassF(){
+  const c=S.cat, k=S.advSeries, y=yearNow();
+  if(c==="F1") return 1;
+  if(c==="F2") return y>=2005?1.085:1.10;
+  if(c==="F3") return 1.17;
+  if(c==="FR") return 1.20;
+  if(c==="F4") return y>=2010?1.28:1.30;
+  if(c!=="ADV") return 1.2;
+  let tk=null; try{ const l=advLadder(k); if(l) tk=l.tiers[Math.max(0,Math.min(l.tiers.length-1,S.advTier||0))].key; }catch(e){}
+  const T={ligier:1.38,lmp3:1.33,lmp2:1.26,lmgt3:1.35,hyper:1.21,flm:1.40,gt2:1.28,lmp1:1.10,gt:1.30,gts:1.25,lmp900:1.12,c2:1.25,c1p:1.15,c1w:1.08,imsa:1.25,g5:1.22,g6:1.12,
+           indycar:1.02,cart:1.02,lights:1.12,ars:1.15,atl:1.20};
+  if(tk && T[tk]!=null){ if(S.era==="2010" && tk==="lmp2") return 1.20; return T[tk]; }
+  const D={lemans:1.2,indy:1.02,dtm:(y<1997?1.10:1.28),supercars:1.28,tc:1.40,brasil:1.25,nascar:1.38,
+           superformula:(y<1996?(y<1988?1.12:1.10):y<2013?1.06:1.04),formulae:1.2};
+  return D[k]||1.25;
+}
+function wkEraGen(y){ return y>=2012?1:1+(2012-y)*.0035; }
+/* devuelve {lap:[s1,s2,s3] en segundos, names?} para este circuito, categoría y año; null = usa los valores de siempre */
+function wkLapFor(venue,fam,cfg){
+  const y=yearNow(), k=S.advSeries, nv=wkNorm(venue);
+  const jit=1+((wkHash(venue+"|"+S.cat+"|"+(k||""))%1000)/1000-.5)*.03;
+  const mk=(T,fr)=>{ const f=fr||[.333,.334,.333]; const t=T*jit; return [t*f[0],t*f[1],t*f[2]]; };
+  const shrink=f=>f.map(x=>.3333+(x-.3333)*.85);
+  if(S.cat==="KART"){
+    let base=null; Object.keys(WK_KART).forEach(n=>{ if(nv.indexOf(n)>=0) base=WK_KART[n]; });
+    if(base==null) base=44+(wkHash(nv)%140)/10;
+    const e=y<1985?1.07:y<1995?1.045:y<2005?1.025:1;
+    const h=wkHash(nv); const f=[.30+(h%70)/1000,.34+((h>>3)%60)/1000,0]; f[2]=1-f[0]-f[1];
+    return mk(base*e,f);
+  }
+  if(fam==="rally"){
+    let T=200; WK_RALLY.forEach(r=>{ if(r[0].test(nv)) T=r[1]; });
+    let tier=0; try{ const l=advLadder(k); if(l) tier=(l.tiers.length-1)-Math.max(0,Math.min(l.tiers.length-1,S.advTier||0)); }catch(e){}
+    const e=y<1985?1.22:y<1995?1.12:y<2005?1.05:y<2012?1.02:1;
+    const h=wkHash(nv); const f=[.29+(h%80)/1000,.33+((h>>4)%70)/1000,0]; f[2]=1-f[0]-f[1];
+    return mk(T*e*(1+.045*tier),f);
+  }
+  if(k==="formulae" && S.cat==="ADV"){
+    let T=70; Object.keys(WK_FE).forEach(n=>{ if(nv.indexOf(wkNorm(n))>=0) T=WK_FE[n]; });
+    const e=S.era==="2026"?1:1.07; const h=wkHash(nv); const f=[.30+(h%80)/1000,.30+((h>>4)%80)/1000,0]; f[2]=1-f[0]-f[1];
+    return mk(T*e,f);
+  }
+  let key=null; try{ key=wkCircKey(venue); }catch(e){}
+  if(!key) return null;
+  const base=WK_VAR[key]||key;
+  /* óvalos */
+  if(WK_OVAL[base] && (fam==="oval" || key==="daytona" || key==="talladega" || key==="charlotte" || key==="bristol" || key==="martinsville")){
+    const o=WK_OVAL[base]; const indy=(k==="indy");
+    let T=indy?(o[1]||o[0]*.82):o[0];
+    if(indy) T*= y<1985?1.18:y<1992?1.06:y<2005?1.03:y<2015?1.02:1; else T*= y<1988?.99:1;
+    return mk(T,o[2]);
+  }
+  /* circuitos con pole de F1 conocida (real, año a año) o referencia propia */
+  let F1=wkPoleF1(key,y);
+  if(F1==null && base!==key) F1=wkPoleF1(base,y);
+  if(F1==null && WK_REF[base]!=null) F1=WK_REF[base]*wkEraGen(y);
+  if(F1==null) return null;
+  const cf=wkClassF();
+  let sec0=WK_SEC[key]||WK_SEC[base]; if(!sec0){ const h=wkHash(nv); sec0=[.30+(h%80)/1000,.32+((h>>4)%80)/1000,0]; sec0[2]=1-sec0[0]-sec0[1]; }
+  const sec=shrink(sec0);
+  return mk(F1*cf,sec);
+}
+/* cada fin de semana usa los tiempos de SU circuito */
+(function(){
+  const _c=wkCtx;
+  wkCtx=function(n){
+    const ctx=_c.apply(this,arguments);
+    try{
+      const lap=wkLapFor(ctx.venue,ctx.fam,ctx.cfg);
+      if(lap){ ctx.cfg=Object.assign({},ctx.cfg,{lap}); }
+      if(ctx.fam==="oval"){ let key=null; try{ key=wkCircKey(ctx.venue); }catch(e){}
+        if(!(key && WK_OVAL[WK_VAR[key]||key])){ ctx.cfg.names=["S1","S2","S3"]; } }
+    }catch(e){}
+    return ctx;
+  };
 })();
 </script>
 </body>
