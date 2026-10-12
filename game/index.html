@@ -24011,8 +24011,10 @@ function catPodioJunior(row){
   const [a,z]=CAT_EDAD[idx];
   // los que ya no tienen edad para SU peldaño se retiran de la cantera
   S.jrPool=S.jrPool.filter(p=>p.c===4 ? true : (yr-p.b)<=CAT_EDAD[p.c][1]+2);
-  let cont=S.jrPool.filter(p=>p.c===idx && (yr-p.b)<=z+1);
-  while(cont.length<9){ const n=catNueva(idx); S.jrPool.push(n); cont.push(n); }
+  /* la F3 y la Regional son dos campeonatos distintos del mismo peldaño: cada piloto que sube de la F4 elige uno (los mejores, la F3) */
+  const _sub=S.cat==="FR"?"FR":"F3";
+  let cont=S.jrPool.filter(p=>p.c===idx && (yr-p.b)<=z+1 && (idx!==2 || !p.sub || p.sub===_sub));
+  while(cont.length<9){ const n=catNueva(idx); if(idx===2) n.sub=_sub; S.jrPool.push(n); cont.push(n); }
   cont.forEach(p=>{ p.s=p.lv+gauss()*.16+((typeof wkPodBoost==="function")?wkPodBoost(p.n):0); });
   cont.sort((x,y)=>y.s-x.s);
   // los de abajo suben o se quedan según su puesto (el tuyo se cuenta aparte)
@@ -24020,7 +24022,9 @@ function catPodioJunior(row){
     const rank=i+(pos!=null && pos<=i+1 ? 1 : 0);             // si tú entras por delante, ellos bajan un puesto
     if(ch(CAT_PROB_SUBE[Math.min(CAT_PROB_SUBE.length-1,rank)])){
       if(idx===3){ p.c=4; p.rdy=yr+1; }                        // la F2 da acceso a esperar un asiento de F1
-      else { p.c=idx===2 ? 3 : idx+1; }
+      /* los mejores de la F4 no esperan a nadie: a veces saltan directo a la F2 (si la edad da) y, si no, van a la F3; la Regional se queda con los de más abajo */
+      else if(idx===1 && rank<=1 && (yr-p.b)>=17 && ch(rank===0?.3:.12)){ p.c=3; }
+      else { p.c=idx===2 ? 3 : idx+1; if(p.c===2) p.sub = rank<=2 ? (ch(.85)?"F3":"FR") : (ch(.6)?"FR":"F3"); }
       p.y=yr;
     }
   });
@@ -24053,7 +24057,7 @@ function catMundoTick(skipIdx){
     if(p.c===4 || p.c===skipIdx) return;
     const edad=yr-p.b;
     if(edad<CAT_EDAD[p.c][0]+1) return;
-    if(ch(.15+.45*p.lv)){ if(p.c===3){ p.c=4; p.rdy=yr+1; } else p.c = p.c===2 ? 3 : p.c+1; p.y=yr; }
+    if(ch(.15+.45*p.lv)){ if(p.c===3){ p.c=4; p.rdy=yr+1; } else { p.c = p.c===2 ? 3 : p.c+1; if(p.c===2) p.sub=ch(.5)?"F3":"FR"; } p.y=yr; }
   });
   S.jrPool=S.jrPool.filter(p=>p.c===4 || (yr-p.b)<=CAT_EDAD[p.c][1]+2);
   // los que esperan asiento de F1 y llevan demasiado tiempo en la cola, se pierden por el camino
@@ -24790,7 +24794,7 @@ function wkRegPhase(){
 function wkGapR(R,raw){ const real=raw*(R.ts||1), lt=R.lapT||0; if(lt>20 && R.fam!=="rally" && real>=lt*.92){ return "+"+Math.max(1,Math.floor(real/lt+.08))+" V"; } return wkGap(real); }
 function wkGap(sec){ if(sec>=60){ const m=Math.floor(sec/60), s=sec-m*60; return "+"+m+":"+(s<10?"0":"")+s.toFixed(1); } return "+"+sec.toFixed(sec<10?3:2); }
 function wkBox(){ let b=document.getElementById("wkBox"); if(!b){ b=document.createElement("div"); b.id="wkBox"; const ol=document.getElementById("offerList"); ol.parentNode.insertBefore(b,ol); } return b; }
-function wkBoxOff(){ const b=document.getElementById("wkBox"); if(b) b.remove(); }
+function wkBoxOff(){ const b=document.getElementById("wkBox"); if(b) b.remove(); try{ document.body.classList.remove("wkrace"); }catch(e){} }
 function wkBtn(em,name,sub,color,fn){ return {special:true, em, color, name, sub, onClick:wkGuard(fn)}; }
 function wkGuard(fn){ return function(){ try{ return fn.apply(this,arguments); }catch(e){ try{ track("wk_error",{msg:String((e&&e.message)||e).slice(0,80), cat:S.cat||"?"}); }catch(_){} wkAbort(); } }; }
 function wkAbort(){ window.__wkDilCont=null; wkBoxOff(); S._wkBonus=0; S._wkRes=null; S.wkAuto=true; const c=window.__wkCont; window.__wkCont=null; if(c) c(); }
@@ -25215,7 +25219,7 @@ function wkQualiUI(ctx,done){
     wkDotAnim(box,0,0,0); const bx=i=>box.querySelector(`.wk-box[data-i="${i}"]`), px=i=>box.querySelector(`path.s[data-i="${i}"]`), tot=box.querySelector("#wkTot");
     const resetLap=()=>{ [0,1,2].forEach(i=>{ const b=bx(i); b.className="wk-box"; b.querySelector("b").textContent="—"; px(i).setAttribute("class","s"); }); tot.className="wk-box"; tot.querySelector("b").textContent="—"; };
     const setSec=(i,t,cls)=>{ const b=bx(i); b.className="wk-box "+cls; b.querySelector("b").textContent=wkF(t); px(i).setAttribute("class","s "+cls); };
-    const tab=(keep,flash)=>{ box.querySelector("#wkTab").innerHTML=wkTablaQ(active,keep,flash); };
+    const tab=(keep,flash)=>{ wkTowerQ(box.querySelector("#wkTab"),active,keep,flash); };
     const riv=active.filter(c=>!c.me).sort(()=>Math.random()-.5);
     let ia=0;
     const revealA=()=>{ if(ia<riv.length){ riv[ia++]._v=1; if(ia%4===0||ia===riv.length) tab(null); W(60,revealA); } else phaseB(0); };
@@ -25946,19 +25950,20 @@ function wkStrip(R,box){
 .wk-map circle.x{opacity:0}
 .wk-lap-i{font-size:11px;opacity:.8;text-align:center}
 `; document.head.appendChild(st); })();
+const WK_RH=30;
 function wkTri(c){ return String(surname(c.name)||c.name||(c.me?L("TÚ","YOU"):"")).replace(/[^A-Za-zÀ-ÿ]/g,"").slice(0,3).toUpperCase(); }
 (function(){ const st=document.createElement("style"); st.textContent=`
 .tw{flex:1 1 270px;min-width:250px;border-radius:12px;background:#161b26;color:#e8ecf4;overflow:hidden;font-variant-numeric:tabular-nums;box-shadow:inset 0 0 0 1px #273044}
 .tw-h{display:flex;justify-content:space-between;padding:6px 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8b96ad;border-bottom:1px solid #273044}
 .tw-b{position:relative;overflow:hidden}
-.tw-row{position:absolute;left:0;right:0;top:0;height:24px;display:flex;align-items:center;gap:6px;padding:0 8px;font-size:12px;transition:transform .6s cubic-bezier(.3,.7,.3,1);border-bottom:1px solid #1d2535}
+.tw-row{position:absolute;left:0;right:0;top:0;height:30px;display:flex;align-items:center;gap:6px;padding:0 8px;font-size:12px;transition:transform .6s cubic-bezier(.3,.7,.3,1);border-bottom:1px solid #1d2535}
 .tw-row .p{width:24px;text-align:center;font-weight:800;background:#252e45;border-radius:4px;font-size:11px;line-height:17px}
 .tw-row .b{width:4px;height:16px;border-radius:2px;flex:0 0 4px}
-.tw-row .n{flex:1;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tw-row .n small{font-weight:500;opacity:.55;margin-left:5px;font-size:10px}
+.tw-row .n{flex:1;min-width:0;font-weight:800;white-space:nowrap;overflow:hidden;display:grid;grid-template-columns:auto 1fr;column-gap:0;align-items:center;line-height:13px}.tw-row .n b{font-weight:800}.tw-row .n em{grid-column:1/3;font-style:normal;font-size:9.5px;opacity:.5;font-weight:500;overflow:hidden;text-overflow:ellipsis;line-height:11px}.tw-row .n small{overflow:hidden;text-overflow:ellipsis}
+.tw-row .n small{font-weight:500;opacity:.6;margin-left:5px;font-size:10.5px}
 .tw-row .pit{font-size:10px;background:#1d4ed8;border-radius:4px;padding:0 4px;display:none}
 .tw-row.inpit .pit{display:inline}
-.tw-row .g{width:66px;text-align:right;color:#c7d0e4}
+.tw-row .g{width:62px;text-align:right;color:#c7d0e4;flex:0 0 62px}.tw-row .sc{width:38px;flex:0 0 38px;text-align:center;font-size:10px;border-radius:4px;padding:1px 0;background:#252e45;color:#c7d0e4}.tw-row .sc.wk-p{background:#8e24aa;color:#fff}.tw-row .sc.wk-g{background:#16a34a;color:#fff}.tw-row .sc.wk-y{background:#facc15;color:#111}.tw-row.out{opacity:.4}
 .tw-row .t{width:12px;height:12px;border-radius:50%;border:3px solid #facc15;box-sizing:border-box;flex:0 0 12px}
 .tw-row .t.w{border-color:#38bdf8}.tw-row .t.h{border-color:#f8fafc}
 .tw-row.me{background:linear-gradient(90deg,rgba(225,6,0,.55),rgba(225,6,0,.12))}
@@ -25969,6 +25974,22 @@ function wkTri(c){ return String(surname(c.name)||c.name||(c.me?L("TÚ","YOU"):"
 .wk-hud span.alert{background:#7c2d12;border-color:#ea580c}
 .wk-hud span.red{background:#7f1d1d;border-color:#dc2626}
 .wk-hud span.rain{background:#0c4a6e;border-color:#0284c7}
+.wk-head{margin:2px 0 8px}.wk-head .wk-hn{font-size:21px;font-weight:900;line-height:1.15}.wk-head .wk-hs{font-size:12px;opacity:.7;margin-top:1px}
+.wk-sit{margin:10px 0 2px}.wk-sit h3{margin:0 0 3px;font-size:16px}.wk-sit p{margin:0;font-size:14px;line-height:1.4;opacity:.92}
+.wk-eng{display:flex;gap:10px;align-items:flex-start;background:#0f172a;color:#e8ecf4;border-radius:12px;padding:10px 12px;margin:8px 0 6px;border:1px solid #273044}
+.wk-eng .av{flex:0 0 34px;height:34px;border-radius:50%;background:#1d4ed8;display:flex;align-items:center;justify-content:center;font-size:18px}
+.wk-eng .tx{min-width:0}.wk-eng .tx b.h{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#8b96ad;display:block}
+.wk-eng .tx p{margin:3px 0 0;font-size:13.5px;line-height:1.4}.wk-eng .tx p.q{border-left:3px solid #38bdf8;padding-left:8px;font-style:italic;margin-top:6px}
+.wk-chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px;margin:6px 0}
+.wk-chip{background:#161b26;color:#e8ecf4;border-radius:10px;padding:6px 10px;font-size:12px;border:1px solid #273044;min-width:0}
+.wk-chip small{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8b96ad}
+.wk-chip b{font-size:14px;white-space:nowrap}.wk-chip span{opacity:.65;font-size:11px;margin-left:4px}
+.wk-chip.hot{border-color:#16a34a}.wk-chip.warn{border-color:#ea580c}
+.wk-resl{background:rgba(14,116,144,.14);border-left:3px solid #0e7490;padding:6px 10px;border-radius:6px;font-size:13px;margin:8px 0 2px}
+.twq .tw-b{min-height:60px}
+.tw-ch{display:flex;gap:6px;padding:3px 8px;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:#8b96ad;border-bottom:1px solid #1d2535;align-items:center}.tw-ch .sp{flex:1}.tw-ch .mvs{width:9px}.tw-ch .sc{width:38px;flex:0 0 38px;text-align:center}.tw-ch .g{width:62px;flex:0 0 62px;text-align:right}
+.tw-row.flash{animation:wkflash 1.4s}
+body.wkrace #decTitle,body.wkrace #decSub{display:none}
 `; document.head.appendChild(st); })();
 /* vueltas de la carrera, para poder decir «vuelta 23/57» en cada decisión */
 function wkTotLaps(R){
@@ -25990,15 +26011,15 @@ function wkHud(R,si,sg){
 }
 function wkCardHTML(R){
   const n=R.cars.length, sp=(R.fam==="rally")?null:wkTrackSpec(R.venue,R.fam);
-  const rows=R.cars.map(c=>`<div class="tw-row${c.me?" me":""}" data-id="${c.id}"><span class="p">·</span><i class="b" style="background:${c.col}"></i><span class="n">${c.me?"⭐ ":""}${wkTri(c)}<small>${c.f||""} ${surname(c.name)||c.name||(c.me?L("Tú","You"):"")}</small></span><span class="mv"></span><span class="pit">BOX</span><span class="g"></span>${R.cfg.tyres?`<i class="t"></i>`:""}</div>`).join("");
+  const rows=R.cars.map(c=>`<div class="tw-row${c.me?" me":""}" data-id="${c.id}"><span class="p">·</span><i class="b" style="background:${c.col}"></i><span class="n"><b>${c.me?"⭐ ":""}${wkTri(c)}</b><small>${c.f||""} ${surname(c.name)||c.name||(c.me?L("Tú","You"):"")}</small><em>${String(c.tm||"").replace(/</g,"")}</em></span><span class="mv"></span><span class="pit">BOX</span><span class="g"></span>${R.cfg.tyres?`<i class="t"></i>`:""}</div>`).join("");
   const map=sp?`<svg class="wk-map" viewBox="0 0 ${sp.bw||150} ${sp.bh||115}" style="width:${sp.bw||150}px;height:${sp.bh||115}px"><path class="t1" d="${sp.d}"/><path class="t2" d="${sp.d}"/><path class="t3" d="${sp.d}"/>${wkSFmark(sp.sf)}${R.cars.slice().reverse().map(c=>`<circle class="d${c.me?" me":""}" data-id="${c.id}" r="${c.me?5:3.2}" fill="${c.col}" cx="-20" cy="-20"/>`).join("")}</svg><div class="wk-lap-i"></div>`:"";
-  return `<div class="wk-card"><div class="tw"><div class="tw-h"><span>⏱️ ${L("Clasificación en directo","Live standings")}</span><span>${n} ${L("coches","cars")}</span></div><div class="tw-b" style="height:${n*24}px">${rows}</div></div>${sp?`<div class="wk-side">${map}</div>`:""}</div>`;
+  return `<div class="wk-card"><div class="tw"><div class="tw-h"><span>⏱️ ${L("Clasificación en directo","Live standings")}</span><span>${n} ${L("coches","cars")}</span></div><div class="tw-b" style="height:${n*WK_RH}px">${rows}</div></div>${sp?`<div class="wk-side">${map}</div>`:""}</div>`;
 }
 function wkCardUpdate(R,box,seg){
   const o=wkOrder(R), vivos=o.filter(c=>!c.dnf), lead=vivos.length?vivos[0].t:0, prev=R._pp||{}, si0=(seg==null?0:seg);
   o.forEach((c,i)=>{
     const el=box.querySelector(`.tw-row[data-id="${c.id}"]`); if(!el) return;
-    el.style.transform="translateY("+(i*24)+"px)"; el.classList.toggle("dnf",!!c.dnf);
+    el.style.transform="translateY("+(i*WK_RH)+"px)"; el.classList.toggle("dnf",!!c.dnf);
     el.classList.toggle("inpit", c._box!=null && c._box>=si0-1 && !c.dnf);
     el.querySelector(".p").textContent=c.dnf?"RET":(i+1);
     el.querySelector(".g").textContent=c.dnf?"—":(c===vivos[0]?L("Líder","Leader"):wkGapR(R,c.t-lead));
@@ -26024,7 +26045,7 @@ function wkCardUpdate(R,box,seg){
 }
 function wkLights(box,cb){
   if(window.__WK_FAST || !window.requestAnimationFrame || box.__rally){ cb(); return; }
-  box.innerHTML=`<div class="wk-hdr"><span>🏁 ${L("Carrera","Race")}</span></div><div class="wk-lights">${"<i></i>".repeat(5)}</div><div class="wk-go"></div>`;
+  box.innerHTML=`${box.__head||`<div class="wk-hdr"><span>🏁 ${L("Carrera","Race")}</span></div>`}<div class="wk-lights">${"<i></i>".repeat(5)}</div><div class="wk-go"></div>`;
   const lights=box.querySelectorAll(".wk-lights i"); let k=0, fired=false;
   const go=()=>{ if(fired) return; fired=true; cb(); };   /* una sola vez: ni el semáforo ni el botón pueden arrancar la carrera dos veces */
   const T=(fn,ms)=>setTimeout(()=>{ if(!fired) fn(); },ms);
@@ -26036,7 +26057,75 @@ function wkLights(box,cb){
   const s=wkSit(R), tl={top:L("de los mejores de la parrilla","among the best on the grid"),mid:L("de la zona media","midfield"),back:L("de los más lentos","among the slowest")}[s.tier];
   return `<div style="font-size:12px;opacity:.85;margin:2px 0">🚗 ${L("Tu coche","Your car")}: <b>${s.carRank}º ${L("de","of")} ${s.n}</b> (${tl}) · ${L("las simulaciones te ponían el","the simulations had you at")} <b>${s.exp}º</b></div>`;
 }
-function wkCardShell(R,box){ if(R._shell && box.querySelector("#wkInfo") && box.querySelector(".wk-card")) return; box.innerHTML=`<div id="wkInfo"></div>${wkCardHTML(R)}`; R._shell=true; R._pp=null; R._df=null; }
+function wkCardShell(R,box){ if(R._shell && box.querySelector("#wkInfo") && box.querySelector("#wkHead") && box.querySelector(".wk-card")) return; box.innerHTML=`<div id="wkHead"></div>${wkCardHTML(R)}<div id="wkInfo"></div>`; R._shell=true; R._pp=null; R._df=null; }
+/* ═══ LA TARJETA DE CARRERA, EN ORDEN: nombre de la carrera → clasificación en directo + mapa → situación → vuelta/bandera/tiempo/puesto → ingeniero → (debajo) tus decisiones ═══ */
+function wkHeadHTML(R,ctx){
+  const nW=(S._wkSedes||[]).length||0, cat=(typeof wkCatLabel==="function")?wkCatLabel():"";
+  const rally=R.fam==="rally";
+  const bits=[cat, nW>1?L("Fin de semana ","Weekend ")+ctx.n+"/"+nW:"", rally?"Rally":L("Carrera","Race"), (rally?L("Orden de salida ","Start order "):L("Salida ","Grid "))+R.gridPos+"º"].filter(Boolean);
+  return `<div class="wk-head"><div class="wk-hn">${rally?"🏎️":"🏁"} ${ctx.venue}${ctx.fin?" · 🏆":""}</div><div class="wk-hs">${bits.join(" · ")}</div></div>`;
+}
+function wkHeadSet(R,ctx,box){ const h=box.querySelector("#wkHead"); if(h && !h.__ok){ h.innerHTML=wkHeadHTML(R,ctx); h.__ok=true; } }
+/* la opinión del ingeniero sobre el coche: a veces se equivoca (como en la vida real) */
+function wkEngOpinion(R,si){
+  R._eng2=R._eng2||{}; if(R._eng2[si]) return R._eng2[si];
+  const s=wkSit(R); let tier=s.tier; if(ch(.22)) tier = tier==="mid" ? (ch(.5)?"top":"back") : "mid";
+  const tl={top:["de los mejores de la parrilla","one of the best on the grid"],mid:["del pelotón","a midfield car"],back:["de los más lentos","among the slowest"]}[tier];
+  return R._eng2[si]=L("Mi impresión: el coche es "+tl[0]+".","My feeling: the car is "+tl[1]+".");
+}
+function wkGapTxt(R,dt){ const g=wkGapR(R,dt).replace("+",""); return /V/.test(g)?g:g+" s"; }
+function wkEngPanel(R,si,sg){
+  const s=wkSit(R), L1=[], fl=(sg&&sg._flag)||R.flag||"green", sn=x=>surname(x.name)||x.name;
+  if(sg&&sg._restart) L1.push(L("Relanzamos la carrera: el pelotón sale junto, atento.","We restart: the pack goes together, stay sharp."));
+  else if(fl==="sc") L1.push(L("Safety car en pista: las diferencias se acortan.","Safety car out: the gaps are closing up."));
+  else if(fl==="vsc") L1.push(L("Safety car virtual: ve al delta, sin forzar.","Virtual safety car: stay on the delta, don't push."));
+  else if(fl==="red") L1.push(L("Bandera roja: carrera detenida, nos reagrupamos.","Red flag: race stopped, we regroup."));
+  else if(fl==="yellow") L1.push(L("Amarilla en un tramo: ahí no se adelanta.","Yellow in one sector: no overtaking there."));
+  if(sg&&sg.rain) L1.push(L("Empieza a llover.","It's starting to rain.")); else if(R.wet) L1.push(L("Pista mojada: cuidado con el agarre.","Wet track: watch the grip."));
+  const p=s.mp;
+  L1.push(p===1 ? L("Vas líder: nadie delante.","You lead: nobody ahead.")
+    : s.rel==="arriba" ? L(`Vas ${p}º, por encima de lo que da el coche (${s.exp}º).`,`You're P${p}, above what the car should give (P${s.exp}).`)
+    : s.rel==="abajo" ? L(`Vas ${p}º; el coche daba para ${s.exp}º, hay margen para recuperar.`,`You're P${p}; the car should be P${s.exp}, there's room to recover.`)
+    : L(`Vas ${p}º, lo normal para este coche.`,`You're P${p}, about right for this car.`));
+  if(s.ahead){ const g=wkGapTxt(R,R.me.t-s.ahead.t); L1.push(L(`${sn(s.ahead)} va a ${g}: ${s.gA<1?"lo tienes a tiro.":s.gA<3?"puedes apretarle.":"queda lejos."}`,`${sn(s.ahead)} is ${g} ahead: ${s.gA<1?"he's in range.":s.gA<3?"you can pressure him.":"he's far."}`)); }
+  if(s.behind){ const g=wkGapTxt(R,s.behind.t-R.me.t); L1.push(L(`${sn(s.behind)} está a ${g}: ${s.gB<1?"te tiene encima.":s.gB<3?"viene cerca.":"vas tranquilo."}`,`${sn(s.behind)} is ${g} behind: ${s.gB<1?"he's right on you.":s.gB<3?"he's close.":"you're safe."}`)); }
+  return `<div class="wk-eng"><div class="av">📻</div><div class="tx"><b class="h">${L("Tu ingeniero","Your engineer")}</b>${L1.map(x=>`<p>${x}</p>`).join("")}<p class="q">«${wkEngOpinion(R,si)}»</p></div></div>`;
+}
+function wkChips(R){
+  const s=wkSit(R), a=s.ahead, b=s.behind;
+  const c1=`<div class="wk-chip"><small>${L("Tu coche","Your car")}</small><b>${s.carRank}º/${s.n}</b><span>${L("esperado","expected")} ${s.exp}º</span></div>`;
+  const c2=a?`<div class="wk-chip${s.gA<1.2?" hot":""}"><small>${L("Delante","Ahead")}</small><b>${wkTri(a)} ${wkGapR(R,R.me.t-a.t).replace("+","−")}</b></div>`:`<div class="wk-chip hot"><small>${L("Delante","Ahead")}</small><b>${L("Vas líder","You lead")}</b></div>`;
+  const c3=b?`<div class="wk-chip${s.gB<1.2?" warn":""}"><small>${L("Detrás","Behind")}</small><b>${wkTri(b)} ${wkGapR(R,b.t-R.me.t)}</b></div>`:`<div class="wk-chip"><small>${L("Detrás","Behind")}</small><b>${L("Último","Last")}</b></div>`;
+  return `<div class="wk-chips">${c1}${c2}${c3}</div>`;
+}
+function wkInfoHTML(R,si,sg,note,tyre){
+  const rally=R.fam==="rally";
+  const mates=(R.mates&&R.mates.length)?`<div class="wk-chip" style="margin:6px 0;font-size:12px">🧑‍🤝‍🧑 ${L("Compartes el coche con","You share the car with")}: <b style="white-space:normal;font-size:12px">${R.mates.map(m=>(m.f||"")+" "+surname(m.name)).join(" · ")}</b></div>`:"";
+  return `${R.fin?wkFinPanel(R.fin):""}${note?`<div class="wk-resl">${note}</div>`:""}<div class="wk-sit"><h3>${wkT(sg.t)} <span style="opacity:.55;font-weight:600;font-size:12px">(${rally?L("tramo ","stage "):""}${si+1}/${R.nseg})</span></h3><p>${wkT(sg.d)}</p></div>${wkHud(R,si,sg)}${wkEngPanel(R,si,sg)}${wkChips(R)}${mates}${tyre||""}`;
+}
+/* la clasificación, con la tabla en directo también en la qualy (con equipo, sectores y flechas) */
+function wkTowerQ(el,active,keep,flashMe){
+  const {best}=wkStats(active), nm=wkCfgNames();
+  const rows=active.map(c=>({c,b:wkBestLap(c)})).sort((a,b)=>(a.b?a.b.t:1e9)-(b.b?b.b.t:1e9));
+  const lead=rows[0]&&rows[0].b?rows[0].b.t:0;
+  if(!el.querySelector(".twq")){
+    el.innerHTML=`<div class="tw twq"><div class="tw-h"><span>⏱️ ${L("Clasificación en directo","Live standings")}</span><span>${active.length} ${L("coches","cars")}</span></div><div class="tw-ch"><span class="sp"></span><span class="mvs"></span>${[0,1,2].map(i=>`<span class="sc">${nm[i]}</span>`).join("")}<span class="g">${L("Tiempo","Time")}</span></div><div class="tw-b" style="height:${active.length*WK_RH}px">${active.map(c=>`<div class="tw-row${c.me?" me":""}" data-id="${c.id}"><span class="p">·</span><i class="b" style="background:${c.col}"></i><span class="n"><b>${c.me?"⭐ ":""}${wkTri(c)}</b><small>${c.f||""} ${surname(c.name)||c.name||(c.me?L("Tú","You"):"")}</small><em>${String(c.tm||"").replace(/</g,"")}</em></span><span class="mv"></span><span class="sc"></span><span class="sc"></span><span class="sc"></span><span class="g"></span></div>`).join("")}</div></div><div class="wk-leg">🟪 ${L("récord de la sesión","session record")} · 🟩 ${L("primera vuelta o mejora tu marca","first lap or a personal best")} · 🟨 ${L("no mejoras tu marca","slower than your best")}</div>`;
+    el.__pp=null;
+  }
+  const prev=el.__pp||{};
+  rows.forEach((r,i)=>{
+    const c=r.c, own=wkVis(c), out=keep!=null && i>=keep, row=el.querySelector(`.tw-row[data-id="${c.id}"]`); if(!row) return;
+    row.style.transform="translateY("+(i*WK_RH)+"px)"; row.classList.toggle("out",!!out);
+    row.querySelector(".p").textContent=out?"❌":(i+1);
+    const sc=row.querySelectorAll(".sc"); [0,1,2].forEach(j=>{ sc[j].className="sc"+(r.b?" "+wkColor(j,r.b.s[j],own,best):""); sc[j].textContent=r.b?wkF(r.b.s[j]):"—"; });
+    row.querySelector(".g").textContent=r.b?(i===0?wkF(r.b.t):wkGap(r.b.t-lead)):"—";
+    const mv=row.querySelector(".mv"), pp=prev[c.id];
+    if(pp!=null && pp!==i+1){ mv.textContent=pp>i+1?"▲":"▼"; mv.style.color=pp>i+1?"#4ade80":"#f87171"; } else mv.textContent="";
+    if(c.me && flashMe){ row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); }
+  });
+  el.__pp={}; rows.forEach((r,i)=>{ el.__pp[r.c.id]=i+1; });
+}
+
 function wkRaceUI(ctx,grid,done){
   const R=wkRaceInit(ctx,grid), box=wkBox(); R._shell=false;
   let note="";
@@ -26053,7 +26142,7 @@ function wkRaceUI(ctx,grid,done){
     const tyre=R.cfg.tyres?`<div style="font-size:12px">${R.fam==="formulae"?"🔋 "+L("Energía","Energy"):R.fam==="rally"?"🛞 "+L("Gomas","Tyres"):"🛞 "+L("Neumáticos","Tyres")}: <b>${Math.round(me.tyre)} %</b></div><div class="wk-bar"><i style="width:${Math.round(me.tyre)}%;background:${me.tyre>55?"#16a34a":me.tyre>30?"#d97706":"#dc2626"}"></i></div>`:"";
     const gp=`<div style="font-size:12px;opacity:.8">${ahead?L("Delante","Ahead")+": "+surname(ahead.name)+" ("+wkGapR(R,me.t-ahead.t).replace("+","−")+")":L("Vas líder","You lead")}${behind?" · "+L("Detrás","Behind")+": "+surname(behind.name)+" ("+wkGapR(R,behind.t-me.t)+")":""}</div>`;
     wkCardShell(R,box);
-    box.querySelector("#wkInfo").innerHTML=`${wkHud(R,si,sg)}<div class="wk-hdr"><span>${R.fam==="rally"?"🏎️ "+L("Rally · clasificación por tiempos","Rally · overall by time"):"🏁 "+L("Carrera","Race")} · ${mp+1}º</span><span style="opacity:.7">${R.fam==="rally"?L("Orden de salida","Start order"):L("Salida","Grid")} ${R.gridPos}º</span></div>${R.fin?wkFinPanel(R.fin):""}${(R.mates&&R.mates.length)?`<div style="font-size:12px;opacity:.85;margin:2px 0">🧑‍🤝‍🧑 ${L("Compartes el coche con","You share the car with")}: <b>${R.mates.map(m=>(m.f||"")+" "+surname(m.name)).join(" · ")}</b></div>`:""}${wkEngCached(R,si)}${note?`<div class="wk-note">${note}</div>`:""}${tyre}${gp}`;
+    wkHeadSet(R,ctx,box); box.querySelector("#wkInfo").innerHTML=wkInfoHTML(R,si,sg,note,tyre);
     wkCardUpdate(R,box,si);
     const btns=sg.opts.map((op,i)=>wkBtn((WK_KIND[op.kind]||["•"])[0],wkT(op.l),wkT(op.s),(WK_KIND[op.kind]||[0,"#4b5563"])[1],()=>{
       const ev=wkStep(R,si,i); note=ev.join(" "); seg(si+1);
@@ -26072,7 +26161,7 @@ function wkRaceUI(ctx,grid,done){
     note=[radio].concat(ev).join(" ");
     setDecision(`🏁 ${ctx.venue} · ${L("Relevo","Stint")}: ${surname(mt.name)} (${si+1}/${R.nseg})`, L("Tú descansas en el box mientras tu compañero hace su turno al volante.","You rest in the garage while your co-driver does his stint at the wheel."));
     wkCardShell(R,box);
-    box.querySelector("#wkInfo").innerHTML=`${wkHud(R,si,sg)}<div class="wk-hdr"><span>🛠️ ${L("En el box","In the garage")} · ${mp}º</span><span style="opacity:.7">${L("Al volante","At the wheel")}: ${surname(mt.name)}</span></div><div class="wk-note">${note}</div>`;
+    wkHeadSet(R,ctx,box); box.querySelector("#wkInfo").innerHTML=`<div class="wk-sit"><h3>🛠️ ${L("En el box","In the garage")} · ${mp}º <span style="opacity:.55;font-weight:600;font-size:12px">(${si+1}/${R.nseg})</span></h3><p>${L("Al volante","At the wheel")}: <b>${surname(mt.name)}</b>. ${L("Tú descansas mientras tu compañero hace su turno.","You rest while your co-driver does his stint.")}</p></div>${wkHud(R,si,sg)}<div class="wk-eng"><div class="av">📻</div><div class="tx"><b class="h">${L("Radio","Radio")}</b><p class="q">${note}</p></div></div>`;
     wkCardUpdate(R,box,si+1);
     renderSpecialOptions([wkBtn("▶",L("Seguir la carrera","Follow the race"),L("Vuelves al coche más tarde","You get back in later"),"#0e7490",()=>seg(si+1))]);
   }
@@ -26084,11 +26173,11 @@ function wkRaceUI(ctx,grid,done){
     setDecision(`🏁 ${ctx.venue} · ${L("Resultado","Result")}`, (R.fam==="rally"?L(`Salías en el puesto ${res.grid}º del orden de salida · las simulaciones te ponían ${res.exp}º.`,`You started ${res.grid}th on the road order · the simulations had you at P${res.exp}.`):L(`Salías ${res.grid}º · las simulaciones te ponían ${res.exp}º.`,`You started P${res.grid} · the simulations had you at P${res.exp}.`)));
     wkCardShell(R,box);
     const _ft = res.fin ? `<div class="wk-fin"><b>${res.fin.title?L("🏆 ¡¡CAMPEÓN!! Cierras el campeonato con "+res.fin.myTot+" puntos y superas a "+surname(res.fin.best.name)+" ("+res.fin.best.tot+").","🏆 CHAMPION!! You close the championship on "+res.fin.myTot+" points, ahead of "+surname(res.fin.best.name)+" ("+res.fin.best.tot+")."):L("🥈 Se te escapa el título: "+surname(res.fin.best.name)+" se lleva el campeonato con "+res.fin.best.tot+" puntos (tú, "+res.fin.myTot+").","🥈 The title slips away: "+surname(res.fin.best.name)+" takes the championship on "+res.fin.best.tot+" points (you, "+res.fin.myTot+").")}</b></div>` : "";
-    box.querySelector("#wkInfo").innerHTML=`${_ft}<div class="wk-note"><b>${txt}</b> ${note}</div>${wkPodioHTML(R)}`;
+    wkHeadSet(R,ctx,box); box.querySelector("#wkInfo").innerHTML=`${_ft}<div class="wk-note"><b>${txt}</b> ${note}</div>${wkPodioHTML(R)}`;
     wkCardUpdate(R,box,R.nseg);
     renderSpecialOptions([wkBtn("▶",L("Continuar","Continue"),"","#0e7490",()=>done(res))]);
   }
-  box.__rally=(R.fam==="rally"); wkLights(box,()=>seg(0));
+  box.__rally=(R.fam==="rally"); box.__head=wkHeadHTML(R,ctx); try{ document.body.classList.add("wkrace"); }catch(e){} wkLights(box,()=>seg(0));
 }
 
 /* ─── un fin de semana entero ─── */
