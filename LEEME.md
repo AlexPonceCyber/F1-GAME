@@ -1,4 +1,4 @@
-# F1 Glory — tu app (Android + Windows)
+# F1-GAME — (Android + Windows)
 
 No instalas nada en el PC: GitHub compila las dos apps en la nube y tú solo descargas el resultado.
 
